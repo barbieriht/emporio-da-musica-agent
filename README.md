@@ -131,7 +131,10 @@ preço efetivo com a promoção ativa, disponibilidade derivada de status + esto
 **Privacidade e segurança dos dados de cliente.** Pedido só é mostrado com **número do pedido + telefone cadastrado**
 (comparação só pelos dígitos); pedido inexistente, telefone errado e telefone de outro cliente dão a mesma resposta
 genérica, sem revelar qual dado falhou. O e-mail não é usado porque um deles aparece em dois clientes.
-A verificação é *stateless*: a ferramenta sempre recebe os dados, então o modelo não consegue pulá-la.
+Formatos são validados em código (telefone com DDD + 8/9 dígitos, nº de pedido inteiro positivo). Depois de uma
+verificação bem-sucedida, a sessão lembra o telefone: expira após 10 minutos sem uso, com teto de 30 minutos desde que o
+cliente informou o telefone, vale só para pedidos daquele cliente, e tentativas erradas nunca são lembradas. A regra
+vive em código (`Orders.lookup`), não no prompt, então o modelo não consegue pulá-la.
 
 **Histórico de conversa.** Em memória, por sessão (`Session`). Persistir entre sessões não agrega ao protótipo de CLI.
 Se o modelo falhar no meio de um turno, o histórico volta ao estado anterior (sem mensagem pendurada sem resposta).

@@ -155,3 +155,24 @@ def test_a_failed_model_call_does_not_use_up_the_notice():
         agent.respond(session, "Oi")
 
     assert session.after_hours_notice_shown is False
+
+
+def test_tools_can_reach_the_session_that_is_being_served():
+    from emporio_agent import current_session
+
+    seen = []
+
+    @tool
+    def peek() -> str:
+        """Guarda a sessão atual."""
+        seen.append(current_session())
+        return "ok"
+
+    call = AIMessage(content="", tool_calls=[{"name": "peek", "args": {}, "id": "c1"}])
+    agent, _ = make_agent(call, AIMessage(content="Feito."), tools=[peek])
+    session = Session()
+
+    agent.respond(session, "Oi")
+
+    assert seen == [session]
+    assert seen[0] is session

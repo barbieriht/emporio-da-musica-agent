@@ -1,6 +1,6 @@
 import csv
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from emporio_agent.catalog import Catalog
@@ -10,6 +10,23 @@ from emporio_agent.catalog import Catalog
 class OrderItem:
     name: str
     quantity: int
+
+
+@dataclass
+class Verification:
+    """Per-session memory of the phone that passed verification."""
+
+    phone: str | None = None
+    verified_at: datetime | None = None
+    last_used_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class LookupResult:
+    # found | invalid_phone | invalid_order | verification_needed | not_verified
+    status: str
+    order: "Order | None" = None
+    expired: bool = False
 
 
 @dataclass(frozen=True)
@@ -58,11 +75,42 @@ class Orders:
             phones[oid] = _digits_without_country_code(customer["phone"])
         return cls(orders, phones)
 
+    def lookup(self, order_id: int, phone: str | None, verification: Verification, now: datetime) -> LookupResult:
+        if not isinstance(order_id, int) or order_id <= 0:
+            return LookupResult("invalid_order")
+        if phone and phone.strip():
+            digits = _digits_without_country_code(phone)
+            if len(digits) not in (10, 11):
+                return LookupResult("invalid_phone")
+            order = self.get_order(order_id, phone)
+            if order is None:
+                return LookupResult("not_verified")  # failed attempts are never remembered
+            verification.phone, verification.verified_at, verification.last_used_at = digits, now, now
+            return LookupResult("found", order)
+        if verification.phone is None:
+            return LookupResult("verification_needed")
+        if not _still_valid(verification, now):
+            verification.phone = verification.verified_at = verification.last_used_at = None
+            return LookupResult("verification_needed", expired=True)
+        order = self._orders.get(order_id)
+        if order is None or self._phones[order_id] != verification.phone:
+            return LookupResult("not_verified")
+        verification.last_used_at = now
+        return LookupResult("found", order)
+
     def get_order(self, order_id: int, phone: str) -> Order | None:
         order = self._orders.get(order_id)
         if order is None or _digits_without_country_code(phone) != self._phones[order_id]:
             return None
         return order
+
+
+IDLE_LIMIT = timedelta(minutes=10)  # since the last use
+ABSOLUTE_LIMIT = timedelta(minutes=30)  # since the phone was last typed by the customer
+
+
+def _still_valid(verification: Verification, now: datetime) -> bool:
+    return now - verification.last_used_at <= IDLE_LIMIT and now - verification.verified_at <= ABSOLUTE_LIMIT
 
 
 def _digits(text: str) -> str:

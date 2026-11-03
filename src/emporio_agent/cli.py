@@ -25,11 +25,12 @@ def build_agent() -> Agent:
         Path(os.getenv("COMPLAINTS_FILE", ROOT / "complaints.jsonl")),
         now=lambda: datetime.now(STORE_TZ),
     )
+    now = lambda: datetime.now(STORE_TZ)  # noqa: E731
     tools = (
         build_catalog_tools(catalog)
         + build_policy_tools(policies)
-        + build_order_tools(orders)
-        + build_return_tools(orders, policies, today)
+        + build_order_tools(orders, now)
+        + build_return_tools(orders, policies, today, now)
         + build_complaint_tools(complaints)
         + build_payment_tools(catalog, policies)
     )

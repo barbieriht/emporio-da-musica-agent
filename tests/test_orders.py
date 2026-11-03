@@ -74,3 +74,136 @@ def test_the_total_is_the_recorded_one_not_the_sum_of_current_prices(orders):
     order = orders.get_order(20, phone="(67) 98321-6543")  # Thiago Barbosa Lima
 
     assert order.total == 1400.0  # items at today's prices sum to 1488
+
+
+# ---------------------------------------------------------------------------
+# lookup(): format validation and session-remembered verification
+# ---------------------------------------------------------------------------
+from datetime import datetime, timedelta
+
+from emporio_agent.orders import Verification
+
+T0 = datetime(2026, 11, 3, 10, 0)
+ANA = "(67) 99654-7821"        # owns order 8
+THIAGO = "(67) 98321-6543"     # owns orders 2 and 20
+
+
+def test_a_malformed_phone_is_rejected_before_any_lookup(orders):
+    for typed in ("7821", "abc", "99654-78", "123456789012345"):
+        result = orders.lookup(8, typed, Verification(), T0)
+        assert result.status == "invalid_phone", typed
+        assert result.order is None
+
+
+@pytest.mark.parametrize("order_id", [0, -3])
+def test_an_order_number_must_be_a_positive_integer(orders, order_id):
+    assert orders.lookup(order_id, ANA, Verification(), T0).status == "invalid_order"
+
+
+def test_without_a_phone_and_without_a_verification_the_agent_must_ask(orders):
+    result = orders.lookup(8, None, Verification(), T0)
+
+    assert result.status == "verification_needed"
+    assert result.expired is False
+    assert result.order is None
+
+
+def test_lookup_with_the_right_phone_finds_the_order(orders):
+    result = orders.lookup(8, ANA, Verification(), T0)
+
+    assert result.status == "found"
+    assert result.order.id == 8
+
+
+def test_a_verified_phone_unlocks_the_other_orders_of_the_same_customer(orders):
+    verification = Verification()
+    orders.lookup(2, THIAGO, verification, T0)
+
+    result = orders.lookup(20, None, verification, T0 + timedelta(minutes=5))
+
+    assert result.status == "found"
+    assert result.order.id == 20
+
+
+def test_a_verified_phone_never_unlocks_someone_elses_order(orders):
+    verification = Verification()
+    orders.lookup(2, THIAGO, verification, T0)
+
+    result = orders.lookup(8, None, verification, T0 + timedelta(minutes=1))  # Ana's order
+
+    assert result.status == "not_verified"
+    assert result.order is None
+
+
+def test_a_wrong_phone_is_never_remembered(orders):
+    verification = Verification()
+
+    assert orders.lookup(8, "(67) 90000-0000", verification, T0).status == "not_verified"
+    assert orders.lookup(8, None, verification, T0 + timedelta(minutes=1)).status == "verification_needed"
+
+
+def test_a_failed_attempt_keeps_the_existing_verification(orders):
+    verification = Verification()
+    orders.lookup(2, THIAGO, verification, T0)
+
+    assert orders.lookup(8, "(67) 90000-0000", verification, T0 + timedelta(minutes=1)).status == "not_verified"
+    assert orders.lookup(20, None, verification, T0 + timedelta(minutes=2)).status == "found"
+
+
+def test_an_unknown_order_with_a_remembered_phone_is_a_generic_failure(orders):
+    verification = Verification()
+    orders.lookup(2, THIAGO, verification, T0)
+
+    assert orders.lookup(9999, None, verification, T0 + timedelta(minutes=1)).status == "not_verified"
+
+
+def minutes(n):
+    return T0 + timedelta(minutes=n)
+
+
+def verified_at_t0(orders):
+    verification = Verification()
+    orders.lookup(2, THIAGO, verification, T0)
+    return verification
+
+
+def test_the_verification_lasts_10_minutes_after_the_last_use(orders):
+    verification = verified_at_t0(orders)
+
+    assert orders.lookup(20, None, verification, minutes(10)).status == "found"
+
+
+def test_after_10_idle_minutes_the_agent_must_ask_again(orders):
+    verification = verified_at_t0(orders)
+
+    result = orders.lookup(20, None, verification, minutes(10) + timedelta(seconds=1))
+
+    assert (result.status, result.expired) == ("verification_needed", True)
+
+
+def test_each_use_renews_the_idle_limit_but_never_beyond_30_minutes_in_total(orders):
+    verification = verified_at_t0(orders)
+
+    for minute in (9, 18, 27):
+        assert orders.lookup(20, None, verification, minutes(minute)).status == "found"
+    assert orders.lookup(20, None, verification, minutes(30)).status == "found"
+
+    late = orders.lookup(20, None, verification, minutes(30) + timedelta(seconds=1))
+    assert (late.status, late.expired) == ("verification_needed", True)
+
+
+def test_once_expired_the_stored_phone_is_gone_until_the_customer_verifies_again(orders):
+    verification = verified_at_t0(orders)
+    orders.lookup(20, None, verification, minutes(11))  # expired
+
+    assert orders.lookup(20, None, verification, minutes(12)).status == "verification_needed"
+    assert orders.lookup(20, THIAGO, verification, minutes(13)).status == "found"
+    assert orders.lookup(2, None, verification, minutes(14)).status == "found"
+
+
+def test_giving_the_phone_again_restarts_the_30_minute_cap(orders):
+    verification = Verification()
+    for minute in (0, 9, 18, 27):
+        orders.lookup(2, THIAGO, verification, minutes(minute))
+
+    assert orders.lookup(20, None, verification, minutes(36)).status == "found"  # 36 min after the first, 9 after the last

@@ -132,20 +132,48 @@ def _payment_pt(method: str) -> str:
     return {"pix": "PIX", "debit": "cartão de débito", "boleto": "boleto"}.get(method, method)
 
 
-def build_order_tools(orders: "Orders") -> list:
+_CONTACTS = "telefone (67) 3341-4444 ou WhatsApp (67) 3321-4500"
+
+
+def _resolve_order(orders: "Orders", now, order_id: int, phone: str | None):
+    """Verify access to an order using the session's remembered verification.
+
+    Returns (order, None) on success or (None, message_for_the_agent) otherwise."""
+    from emporio_agent.agent import current_session
+
+    result = orders.lookup(order_id, phone, current_session().verification, now())
+    if result.status == "found":
+        return result.order, None
+    messages = {
+        "invalid_order": "O número do pedido é inválido. Peça ao cliente o número correto. Nada foi consultado.",
+        "invalid_phone": (
+            "O telefone informado parece inválido (precisa de DDD + 8 ou 9 dígitos). Peça de novo. "
+            "Nada foi consultado."
+        ),
+        "verification_needed": (
+            ("A verificação anterior expirou por tempo. " if result.expired else "")
+            + "Para consultar este pedido é preciso o telefone usado na compra: peça ao cliente."
+        ),
+        "not_verified": (
+            "Não consegui confirmar esse pedido com esses dados. Não revele qual dado falhou. "
+            f"Sugira conferir o número do pedido e o telefone usado na compra, ou falar com a equipe: {_CONTACTS}."
+        ),
+    }
+    return None, messages[result.status]
+
+
+def build_order_tools(orders: "Orders", now) -> list:
     @tool
-    def get_order_status(order_id: int, phone: str) -> str:
-        """Consulta o status de um pedido. EXIGE o número do pedido e o telefone do cliente
-        cadastrado na compra (peça os dois ao cliente antes de chamar; nunca invente nem
-        reutilize dados de outra pessoa). Retorna status, itens, total, forma de pagamento,
-        código de rastreio, previsão de entrega ou motivo do cancelamento."""
-        order = orders.get_order(order_id, phone)
+    def get_order_status(order_id: int, phone: str | None = None) -> str:
+        """Consulta o status de um pedido. Peça ao cliente o número do pedido e o telefone usado
+        na compra; nunca invente dados. Depois de uma verificação bem-sucedida, o telefone fica
+        lembrado por alguns minutos nesta conversa: nesse período basta o número do pedido (omita
+        'phone'), só para pedidos do mesmo cliente. Se a ferramenta pedir o telefone, peça ao
+        cliente. Retorna status, itens, total, pagamento, rastreio, previsão de entrega ou motivo
+        do cancelamento."""
+        order, problem = _resolve_order(orders, now, order_id, phone)
         if order is None:
-            return (
-                "Não consegui confirmar esse pedido com esses dados. Não revele qual dado falhou. "
-                "Sugira conferir o número do pedido e o telefone usado na compra, ou falar com a "
-                "equipe: telefone (67) 3341-4444 ou WhatsApp (67) 3321-4500."
-            )
+            return problem
         lines = [
             f"Pedido {order.id} de {order.customer_first_name}, feito em {order.order_date:%d/%m/%Y}.",
             f"Status: {_STATUS_PT[order.status]}.",
@@ -163,25 +191,22 @@ def build_order_tools(orders: "Orders") -> list:
     return [get_order_status]
 
 
-def build_return_tools(orders: "Orders", policies: "Policies", today) -> list:
-    """`today` is a zero-argument callable returning the current date."""
+def build_return_tools(orders: "Orders", policies: "Policies", today, now) -> list:
+    """`today` and `now` are zero-argument callables (current date / current datetime)."""
     from emporio_agent.returns import assess_return
 
     @tool
-    def check_return_eligibility(order_id: int, phone: str, reason: str) -> str:
-        """Verifica se um pedido pode ser devolvido ou trocado. EXIGE número do pedido e
-        telefone da compra (mesma verificação do status de pedido) e o motivo, que você deve
-        perguntar ao cliente se ele não disse: 'arrependimento' (desistiu da compra),
+    def check_return_eligibility(order_id: int, reason: str, phone: str | None = None) -> str:
+        """Verifica se um pedido pode ser devolvido ou trocado. Exige o número do pedido, a mesma
+        verificação do status de pedido (telefone da compra, lembrado por alguns minutos após uma
+        verificação bem-sucedida; omita 'phone' nesse caso) e o motivo, que você deve perguntar
+        ao cliente se ele não disse: 'arrependimento' (desistiu da compra),
         'preferencia' (quer trocar cor/modelo) ou 'defeito' (problema de fabricação)."""
         if reason not in ("arrependimento", "preferencia", "defeito"):
             return "Motivo inválido. Use arrependimento, preferencia ou defeito."
-        order = orders.get_order(order_id, phone)
+        order, problem = _resolve_order(orders, now, order_id, phone)
         if order is None:
-            return (
-                "Não consegui confirmar esse pedido com esses dados. Não revele qual dado falhou. "
-                "Sugira conferir o número do pedido e o telefone usado na compra, ou falar com a "
-                "equipe: telefone (67) 3341-4444 ou WhatsApp (67) 3321-4500."
-            )
+            return problem
         r = assess_return(order, reason, today())
         d = lambda x: f"{x:%d/%m/%Y}"  # noqa: E731
         if r.outcome == "eligible":

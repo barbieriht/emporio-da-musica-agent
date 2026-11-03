@@ -1,7 +1,9 @@
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
+from emporio_agent.orders import Verification
 from emporio_agent.prompt import SYSTEM_PROMPT
 
 MAX_MODEL_CALLS = 5
@@ -15,6 +17,15 @@ FALLBACK_REPLY = (
 class Session:
     history: list[BaseMessage] = field(default_factory=list)
     after_hours_notice_shown: bool = False
+    verification: Verification = field(default_factory=Verification)
+
+
+_current_session: ContextVar[Session] = ContextVar("current_session")
+
+
+def current_session() -> Session:
+    """The session being served; tools use it to read/update per-session state."""
+    return _current_session.get()
 
 
 class Agent:
@@ -25,11 +36,14 @@ class Agent:
 
     def respond(self, session: Session, message: str) -> str:
         checkpoint = len(session.history)
+        token = _current_session.set(session)
         try:
             reply = self._respond(session, message)
         except Exception:
             del session.history[checkpoint:]  # don't keep a half-finished turn
             raise
+        finally:
+            _current_session.reset(token)
         return self._with_notice(session, reply)
 
     def _with_notice(self, session: Session, reply: str) -> str:
