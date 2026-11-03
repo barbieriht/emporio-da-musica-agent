@@ -84,3 +84,60 @@ def test_other_cities_are_quoted_by_zip_code_with_carrier_options(policies):
 
     assert quote.fee is None  # calculated from CEP, weight and dimensions
     assert quote.delivery_time == "PAC 5 a 12 dias úteis; SEDEX 2 a 5 dias úteis; Jadlog 3 a 8 dias úteis"
+
+
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+CG = ZoneInfo("America/Campo_Grande")
+
+
+def at(year, month, day, hour, minute=0):
+    return datetime(year, month, day, hour, minute, tzinfo=CG)
+
+
+@pytest.mark.parametrize(
+    "moment, is_open",
+    [
+        (at(2026, 11, 9, 9, 0), True),     # Monday opening time
+        (at(2026, 11, 9, 17, 59), True),
+        (at(2026, 11, 9, 18, 0), False),   # closing time
+        (at(2026, 11, 9, 8, 59), False),
+        (at(2026, 11, 14, 12, 59), True),  # Saturday until 13:00
+        (at(2026, 11, 14, 13, 0), False),
+        (at(2026, 11, 15, 10, 0), False),  # Sunday
+    ],
+)
+def test_store_is_open_per_the_published_hours(policies, moment, is_open):
+    assert policies.store_status(moment).is_open is is_open
+
+
+@pytest.mark.parametrize(
+    "now, next_open",
+    [
+        (at(2026, 11, 9, 8, 0), at(2026, 11, 9, 9)),     # Monday before opening
+        (at(2026, 11, 13, 18, 30), at(2026, 11, 14, 9)),  # Friday after closing -> Saturday
+        (at(2026, 11, 14, 14, 0), at(2026, 11, 16, 9)),   # Saturday afternoon -> Monday
+        (at(2026, 11, 15, 10, 0), at(2026, 11, 16, 9)),   # Sunday -> Monday
+    ],
+)
+def test_closed_store_reports_when_it_opens_next(policies, now, next_open):
+    assert policies.store_status(now).next_open == next_open
+
+
+def test_national_holiday_on_a_weekday_is_closed(policies):
+    status = policies.store_status(at(2026, 9, 7, 10))  # Independência, Monday
+
+    assert status.is_open is False
+    assert status.next_open == at(2026, 9, 8, 9)
+    assert status.holiday == "Independência do Brasil"
+
+
+def test_christmas_on_friday_skips_to_saturday(policies):
+    assert policies.store_status(at(2026, 12, 25, 10)).next_open == at(2026, 12, 26, 9)
+
+
+def test_utc_times_are_converted_to_campo_grande_time(policies):
+    # 13:00 UTC on Monday 2026-11-09 is 09:00 in Campo Grande (UTC-4)
+    assert policies.store_status(datetime(2026, 11, 9, 13, 0, tzinfo=timezone.utc)).is_open is True
+    assert policies.store_status(datetime(2026, 11, 9, 12, 59, tzinfo=timezone.utc)).is_open is False

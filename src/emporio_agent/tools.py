@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 
 from emporio_agent.catalog import Catalog, Product
+from emporio_agent.policies import Policies
 
 _AVAILABILITY_PT = {
     "available": "disponível",
@@ -55,3 +56,58 @@ def build_catalog_tools(catalog: Catalog) -> list:
         return "\n".join(lines)
 
     return [search_products, get_product_details]
+
+
+def build_policy_tools(policies: "Policies") -> list:
+    from datetime import datetime
+
+    from emporio_agent.policies import STORE_TZ
+
+    topics = ", ".join(policies.topics())
+
+    @tool(
+        description=(
+            "Consulta o manual de políticas da loja. Tópicos disponíveis: "
+            f"{topics}. Use para endereço/contatos (loja), horários, formas de pagamento, "
+            "trocas e devoluções, frete, promoções, diretrizes de atendimento, garantia e privacidade."
+        )
+    )
+    def get_policy(topic: str) -> str:
+        text = policies.lookup(topic)
+        return text if text is not None else f"Tópico desconhecido. Tópicos: {topics}."
+
+    @tool
+    def get_installments(price: float) -> str:
+        """Opções de parcelamento no cartão de crédito (sem juros) para um valor em reais."""
+        options = policies.installment_options(price)
+        top = options[-1]
+        return (
+            f"Até {top.n}x de {_brl(top.value)} sem juros. Opções: "
+            + ", ".join(f"{o.n}x de {_brl(o.value)}" for o in options)
+        )
+
+    @tool
+    def get_shipping_quote(order_total: float, city: str) -> str:
+        """Frete e prazo de entrega para o valor do pedido (em reais) e a cidade de destino."""
+        quote = policies.shipping_quote(order_total, city)
+        if quote.fee is None:
+            return (
+                f"Fora de Campo Grande: frete calculado pelo CEP, peso e dimensões. "
+                f"Prazos: {quote.delivery_time}."
+            )
+        fee = "frete grátis" if quote.fee == 0 else f"taxa fixa de {_brl(quote.fee)}"
+        return f"Campo Grande: {fee}, entrega em {quote.delivery_time}."
+
+    @tool
+    def is_store_open_now() -> str:
+        """Informa se a loja está aberta agora e, se fechada, quando abre novamente."""
+        status = policies.store_status(datetime.now(STORE_TZ))
+        if status.is_open:
+            return "A loja está aberta agora."
+        note = f" (hoje é feriado nacional: {status.holiday})" if status.holiday else ""
+        return (
+            f"A loja está fechada agora{note}. Abre em "
+            f"{status.next_open:%d/%m/%Y às %H:%M}. Em feriados locais ou móveis, confirmar com a loja."
+        )
+
+    return [get_policy, get_installments, get_shipping_quote, is_store_open_now]

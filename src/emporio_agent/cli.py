@@ -3,7 +3,8 @@ from pathlib import Path
 
 from emporio_agent.catalog import Catalog
 from emporio_agent.config import build_model
-from emporio_agent.tools import build_catalog_tools
+from emporio_agent.policies import Policies
+from emporio_agent.tools import build_catalog_tools, build_policy_tools
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
@@ -12,7 +13,9 @@ EXIT_WORDS = {"sair", "exit", "quit"}
 
 def main() -> None:
     catalog = Catalog.from_csv_dir(DATA_DIR)
-    agent = Agent(model=build_model(), tools=build_catalog_tools(catalog))
+    policies = Policies.from_dir(DATA_DIR / "policies")
+    tools = build_catalog_tools(catalog) + build_policy_tools(policies)
+    agent = Agent(model=build_model(), tools=tools)
     session = Session()
     print("Empório da Música — chat com o Maestro (digite 'sair' para encerrar)\n")
     while True:
