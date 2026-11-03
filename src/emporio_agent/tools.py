@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 
 from emporio_agent.catalog import Catalog, Product
+from emporio_agent.orders import Orders
 from emporio_agent.policies import Policies
 
 _AVAILABILITY_PT = {
@@ -111,3 +112,49 @@ def build_policy_tools(policies: "Policies") -> list:
         )
 
     return [get_policy, get_installments, get_shipping_quote, is_store_open_now]
+
+
+_STATUS_PT = {
+    "pending": "pendente (ainda não confirmado)",
+    "confirmed": "confirmado",
+    "shipped": "enviado",
+    "delivered": "entregue",
+    "cancelled": "cancelado",
+}
+
+
+def _payment_pt(method: str) -> str:
+    if method.startswith("credit_"):
+        return f"cartão de crédito em {method.removeprefix('credit_')}"
+    return {"pix": "PIX", "debit": "cartão de débito", "boleto": "boleto"}.get(method, method)
+
+
+def build_order_tools(orders: "Orders") -> list:
+    @tool
+    def get_order_status(order_id: int, phone: str) -> str:
+        """Consulta o status de um pedido. EXIGE o número do pedido e o telefone do cliente
+        cadastrado na compra (peça os dois ao cliente antes de chamar; nunca invente nem
+        reutilize dados de outra pessoa). Retorna status, itens, total, forma de pagamento,
+        código de rastreio, previsão de entrega ou motivo do cancelamento."""
+        order = orders.get_order(order_id, phone)
+        if order is None:
+            return (
+                "Não consegui confirmar esse pedido com esses dados. Não revele qual dado falhou. "
+                "Sugira conferir o número do pedido e o telefone usado na compra, ou falar com a "
+                "equipe: telefone (67) 3341-4444 ou WhatsApp (67) 3321-4500."
+            )
+        lines = [
+            f"Pedido {order.id} de {order.customer_first_name}, feito em {order.order_date:%d/%m/%Y}.",
+            f"Status: {_STATUS_PT[order.status]}.",
+            "Itens: " + ", ".join(f"{i.quantity}x {i.name}" for i in order.items) + ".",
+            f"Total: {_brl(order.total)} ({_payment_pt(order.payment_method)}).",
+        ]
+        if order.tracking_code:
+            lines.append(f"Código de rastreio: {order.tracking_code}.")
+        if order.estimated_delivery:
+            lines.append(f"Previsão de entrega: {order.estimated_delivery:%d/%m/%Y}.")
+        if order.cancel_reason:
+            lines.append(f"Motivo do cancelamento: {order.cancel_reason}.")
+        return "\n".join(lines)
+
+    return [get_order_status]
