@@ -60,6 +60,8 @@ class Catalog:
         limit: int = 10,
     ) -> list[Product]:
         words = _normalize(query).split()
+        if not words and category is None and min_price is None and max_price is None:
+            return []
         wanted_category = _normalize(category) if category else None
         matches = [
             p
@@ -79,8 +81,23 @@ class Catalog:
         )
         return matches[:limit]
 
-    def get_product(self, product_id: int) -> Product:
-        return self._products[product_id]
+    def suggest_alternatives(self, product_id: int, limit: int = 3) -> list[Product]:
+        target = self.get_product(product_id)
+        if target is None:
+            return []
+        candidates = [
+            p
+            for p in self._products.values()
+            if p.id != target.id
+            and p.category == target.category
+            and p.availability == "available"
+            and 0.7 * target.price <= p.price <= 1.3 * target.price
+        ]
+        candidates.sort(key=lambda p: (abs(p.price - target.price), p.price))
+        return candidates[:limit]
+
+    def get_product(self, product_id: int) -> Product | None:
+        return self._products.get(product_id)
 
 
 def _read(data_dir: Path, suffix: str) -> list[dict]:

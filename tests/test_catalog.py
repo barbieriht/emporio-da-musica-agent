@@ -118,3 +118,33 @@ def test_text_relevance_beats_discount(catalog):
     # 121 (Ohana ukulele) is discounted but only has nylon strings in its specs
     assert "nylon" in results[0].name.lower()
     assert results[0].id != 121
+
+
+def test_unknown_product_id_returns_none(catalog):
+    assert catalog.get_product(9999) is None
+
+
+def test_search_with_no_match_returns_an_empty_list(catalog):
+    assert catalog.search_products(query="trompete de ouro maciço") == []
+
+
+def test_search_with_no_criteria_returns_nothing(catalog):
+    assert catalog.search_products() == []
+
+
+@pytest.mark.parametrize(
+    "unavailable_id, expected",
+    [
+        (96, [107, 82, 86]),     # out of stock, 799.90: same category, +-30%, closest price first
+        (113, [86, 87, 107]),    # discontinued, 749
+        (130, [126, 129, 125]),  # coming soon, 1749; price tie broken by lower price
+    ],
+)
+def test_alternatives_are_available_same_category_within_30_percent_closest_first(
+    catalog, unavailable_id, expected
+):
+    assert ids(catalog.suggest_alternatives(unavailable_id)) == expected
+
+
+def test_alternatives_for_an_unknown_product_are_empty(catalog):
+    assert catalog.suggest_alternatives(9999) == []
