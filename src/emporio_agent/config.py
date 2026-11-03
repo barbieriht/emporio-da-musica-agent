@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
 DEFAULT_PROVIDER = "google_genai"
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-3.7-flash"
 
 
 def build_model():
