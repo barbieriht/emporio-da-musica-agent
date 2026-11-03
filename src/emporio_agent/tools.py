@@ -158,3 +158,53 @@ def build_order_tools(orders: "Orders") -> list:
         return "\n".join(lines)
 
     return [get_order_status]
+
+
+def build_return_tools(orders: "Orders", policies: "Policies", today) -> list:
+    """`today` is a zero-argument callable returning the current date."""
+    from emporio_agent.returns import assess_return
+
+    @tool
+    def check_return_eligibility(order_id: int, phone: str, reason: str) -> str:
+        """Verifica se um pedido pode ser devolvido ou trocado. EXIGE número do pedido e
+        telefone da compra (mesma verificação do status de pedido) e o motivo, que você deve
+        perguntar ao cliente se ele não disse: 'arrependimento' (desistiu da compra),
+        'preferencia' (quer trocar cor/modelo) ou 'defeito' (problema de fabricação)."""
+        if reason not in ("arrependimento", "preferencia", "defeito"):
+            return "Motivo inválido. Use arrependimento, preferencia ou defeito."
+        order = orders.get_order(order_id, phone)
+        if order is None:
+            return (
+                "Não consegui confirmar esse pedido com esses dados. Não revele qual dado falhou. "
+                "Sugira conferir o número do pedido e o telefone usado na compra, ou falar com a "
+                "equipe: telefone (67) 3341-4444 ou WhatsApp (67) 3321-4500."
+            )
+        r = assess_return(order, reason, today())
+        d = lambda x: f"{x:%d/%m/%Y}"  # noqa: E731
+        if r.outcome == "eligible":
+            text = f"Dentro do prazo: o cliente pode solicitar até {d(r.deadline)} (restam {r.days_left} dia(s))."
+        elif r.outcome == "expired":
+            text = f"Fora do prazo: terminou em {d(r.deadline)}."
+            if r.legal_warranty_until:
+                state = "ainda vigente" if r.in_legal_warranty else "encerrada"
+                text += (
+                    f" Garantia legal de 90 dias contra defeito de fabricação {state} "
+                    f"(até {d(r.legal_warranty_until)}). A garantia do fabricante, se houver, está no "
+                    "certificado do produto, e a loja pode intermediar mediante solicitação."
+                )
+        elif r.outcome == "not_received_yet":
+            text = (
+                f"O pedido ainda não foi entregue (previsão {d(r.starts_on)}); o prazo só começa "
+                "a contar do recebimento."
+            )
+        elif r.outcome == "not_shipped":
+            text = "O pedido ainda não foi enviado, então não há devolução; para cancelar, falar com a equipe."
+        else:
+            text = "O pedido está cancelado: não há o que devolver."
+        return (
+            f"{text}\n\nAssuma compra online. Se o item for personalizado/sob encomenda ou venda final, "
+            "ou a compra tiver sido na loja física, confirme com a equipe.\n\n"
+            "Regras do manual:\n" + (policies.lookup("trocas-devolucoes") or "")
+        )
+
+    return [check_return_eligibility]

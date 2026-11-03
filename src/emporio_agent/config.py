@@ -15,3 +15,14 @@ def build_model():
         model_provider=os.getenv("LLM_PROVIDER", DEFAULT_PROVIDER),
         temperature=0.3,
     )
+
+
+def today():
+    """Today's date in the store's timezone. AGENT_TODAY=YYYY-MM-DD overrides it (demos/tests)."""
+    from datetime import date, datetime
+
+    from emporio_agent.policies import STORE_TZ
+
+    load_dotenv()
+    override = os.getenv("AGENT_TODAY")
+    return date.fromisoformat(override) if override else datetime.now(STORE_TZ).date()
