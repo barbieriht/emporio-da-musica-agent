@@ -71,7 +71,7 @@ def test_search_ignores_accents(catalog):
 
 
 def test_violoes_up_to_1000_reais(catalog):
-    results = catalog.search_products(category="Violões", max_price=1000)
+    results = catalog.search_products(category="Violões", max_price=1000, limit=20)
 
     # literal list taken from the CSV: every Violões product whose price is <= 1000
     assert set(ids(results)) == {81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 96, 107, 112, 113}
@@ -89,3 +89,32 @@ def test_min_price_filter(catalog):
     results = catalog.search_products(category="Violões", min_price=11000)
 
     assert set(ids(results)) == {93, 108}  # Martin D-28 11499 and D-28E 12000
+
+
+def test_results_are_capped_at_ten_by_default_and_unavailable_ones_rank_last(catalog):
+    results = catalog.search_products(category="Violões", max_price=1000)
+
+    assert len(results) == 10
+    assert all(p.availability == "available" for p in results)  # 96 and 113 are cut
+
+
+def test_limit_can_be_raised(catalog):
+    results = catalog.search_products(category="Violões", max_price=1000, limit=20)
+
+    assert len(results) == 14
+
+
+def test_discounted_products_come_before_full_price_ones(catalog):
+    results = catalog.search_products(category="Ukuleles", limit=20)
+
+    # 127 (Kalani, 10% off, 323.10) and 121 (Ohana, 20% off, 439.20) are the only active promotions
+    assert ids(results)[:2] == [127, 121]
+    assert ids(results)[-1] == 130  # coming_soon goes last
+
+
+def test_text_relevance_beats_discount(catalog):
+    results = catalog.search_products(query="nylon")
+
+    # 121 (Ohana ukulele) is discounted but only has nylon strings in its specs
+    assert "nylon" in results[0].name.lower()
+    assert results[0].id != 121

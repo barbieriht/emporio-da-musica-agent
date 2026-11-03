@@ -57,10 +57,11 @@ class Catalog:
         category: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None,
+        limit: int = 10,
     ) -> list[Product]:
         words = _normalize(query).split()
         wanted_category = _normalize(category) if category else None
-        return [
+        matches = [
             p
             for p in self._products.values()
             if all(w in p.search_text for w in words)
@@ -68,6 +69,15 @@ class Catalog:
             and (min_price is None or p.price >= min_price)
             and (max_price is None or p.price <= max_price)
         ]
+        matches.sort(
+            key=lambda p: (
+                -sum(w in _normalize(p.name) for w in words),  # words found in the name first
+                p.availability != "available",  # then sellable before unavailable
+                p.discount_percent is None,  # then discounted before full price
+                p.price,
+            )
+        )
+        return matches[:limit]
 
     def get_product(self, product_id: int) -> Product:
         return self._products[product_id]
