@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+
+from emporio_agent.prompt import SYSTEM_PROMPT
 
 MAX_MODEL_CALLS = 5
 FALLBACK_REPLY = (
@@ -22,7 +24,7 @@ class Agent:
     def respond(self, session: Session, message: str) -> str:
         session.history.append(HumanMessage(content=message))
         for _ in range(MAX_MODEL_CALLS):
-            reply = self._model.invoke(session.history)
+            reply = self._model.invoke([SystemMessage(content=SYSTEM_PROMPT), *session.history])
             session.history.append(reply)
             if not reply.tool_calls:
                 return reply.content

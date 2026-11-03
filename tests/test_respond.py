@@ -11,9 +11,11 @@ class RecordingFakeModel(GenericFakeChatModel):
     """Fake chat model that remembers the messages it received on each call."""
 
     received: list = []
+    system_prompts: list = []
 
     def _generate(self, messages, *args, **kwargs):
-        self.received.append([m.content for m in messages])
+        self.system_prompts.append([m.content for m in messages if m.type == "system"])
+        self.received.append([m.content for m in messages if m.type != "system"])
         return super()._generate(messages, *args, **kwargs)
 
 
@@ -22,7 +24,7 @@ class RecordingFakeModel(GenericFakeChatModel):
 
 
 def make_agent(*replies, tools=()):
-    model = RecordingFakeModel(messages=iter(replies), received=[])
+    model = RecordingFakeModel(messages=iter(replies), received=[], system_prompts=[])
     return Agent(model=model, tools=list(tools)), model
 
 
@@ -77,3 +79,17 @@ def test_runaway_tool_calls_stop_with_a_polite_fallback_after_five_model_calls()
     assert len(model.received) == 5
     # the conversation stays usable: a follow-up turn is accepted
     agent.respond(session, "Oi de novo")
+
+
+def test_every_model_call_carries_the_maestro_persona_as_a_system_prompt():
+    agent, model = make_agent(AIMessage(content="Oi!"), AIMessage(content="Claro!"))
+    session = Session()
+
+    agent.respond(session, "Oi")
+    agent.respond(session, "Quero um violão")
+
+    for prompts in model.system_prompts:
+        assert len(prompts) == 1
+        assert "Maestro" in prompts[0]
+        assert "assistente virtual" in prompts[0]
+        assert "Empório da Música" in prompts[0]
