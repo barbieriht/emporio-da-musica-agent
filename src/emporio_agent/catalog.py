@@ -1,7 +1,7 @@
 import csv
 import json
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -15,6 +15,8 @@ class Product:
     discount_percent: int | None
     availability: str
     search_text: str = ""
+    description: str = ""
+    specs: dict = field(default_factory=dict)
 
 
 class Catalog:
@@ -44,6 +46,8 @@ class Catalog:
                 price=round(price * (100 - discount) / 100, 2) if discount else price,
                 discount_percent=discount,
                 availability=_availability(r["status"], int(r["stock_quantity"])),
+                description=r["description"],
+                specs=_spec_dict(r["specs"]),
                 search_text=_normalize(
                     " ".join([r["name"], categories[int(r["category_id"])], *_spec_values(r["specs"])])
                 ),
@@ -127,8 +131,13 @@ def _singular(word: str) -> str:
     return word
 
 
-def _spec_values(raw: str) -> list[str]:
+def _spec_dict(raw: str) -> dict:
     try:
-        return [str(v) for v in json.loads(raw).values()]
-    except (ValueError, AttributeError):
-        return []
+        parsed = json.loads(raw)
+    except ValueError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _spec_values(raw: str) -> list[str]:
+    return [str(v) for v in _spec_dict(raw).values()]

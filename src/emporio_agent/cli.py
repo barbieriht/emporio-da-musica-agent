@@ -13,7 +13,7 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 EXIT_WORDS = {"sair", "exit", "quit"}
 
 
-def main() -> None:
+def build_agent() -> Agent:
     catalog = Catalog.from_csv_dir(DATA_DIR)
     policies = Policies.from_dir(DATA_DIR / "policies")
     orders = Orders.from_csv_dir(DATA_DIR, catalog)
@@ -23,7 +23,11 @@ def main() -> None:
         + build_order_tools(orders)
         + build_return_tools(orders, policies, today)
     )
-    agent = Agent(model=build_model(), tools=tools)
+    return Agent(model=build_model(), tools=tools)
+
+
+def main() -> None:
+    agent = build_agent()
     session = Session()
     print("Empório da Música — chat com o Maestro (digite 'sair' para encerrar)\n")
     print(f"Maestro: {GREETING}\n")

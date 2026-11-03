@@ -148,3 +148,11 @@ def test_alternatives_are_available_same_category_within_30_percent_closest_firs
 
 def test_alternatives_for_an_unknown_product_are_empty(catalog):
     assert catalog.suggest_alternatives(9999) == []
+
+
+def test_product_exposes_its_description_and_specs(catalog):
+    product = catalog.get_product(95)
+
+    assert product.description.startswith("Violão dreadnought Takamine com tampo sólido em cedro.")
+    assert product.specs["top"] == "Cedro Sólido"
+    assert product.specs["strings"] == "steel"

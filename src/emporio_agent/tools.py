@@ -49,7 +49,9 @@ def build_catalog_tools(catalog: Catalog) -> list:
         product = catalog.get_product(product_id)
         if product is None:
             return "Produto não encontrado."
-        lines = [format_product(product)]
+        lines = [format_product(product), f"Descrição: {product.description}"]
+        if product.specs:
+            lines.append("Especificações: " + ", ".join(f"{k}: {v}" for k, v in product.specs.items()))
         if product.availability != "available":
             alternatives = catalog.suggest_alternatives(product_id)
             lines.append("Alternativas disponíveis:")
