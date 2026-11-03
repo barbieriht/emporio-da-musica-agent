@@ -1,15 +1,18 @@
 from emporio_agent.agent import Agent, Session
+import os
 from datetime import datetime
 from pathlib import Path
 
 from emporio_agent.catalog import Catalog
+from emporio_agent.complaints import Complaints
 from emporio_agent.config import build_model, today
 from emporio_agent.orders import Orders
 from emporio_agent.policies import STORE_TZ, Policies
 from emporio_agent.prompt import GREETING
-from emporio_agent.tools import build_catalog_tools, build_order_tools, build_policy_tools, build_return_tools
+from emporio_agent.tools import build_catalog_tools, build_complaint_tools, build_order_tools, build_policy_tools, build_return_tools
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = ROOT / "data"
 
 EXIT_WORDS = {"sair", "exit", "quit"}
 
@@ -18,11 +21,16 @@ def build_agent() -> Agent:
     catalog = Catalog.from_csv_dir(DATA_DIR)
     policies = Policies.from_dir(DATA_DIR / "policies")
     orders = Orders.from_csv_dir(DATA_DIR, catalog)
+    complaints = Complaints(
+        Path(os.getenv("COMPLAINTS_FILE", ROOT / "complaints.jsonl")),
+        now=lambda: datetime.now(STORE_TZ),
+    )
     tools = (
         build_catalog_tools(catalog)
         + build_policy_tools(policies)
         + build_order_tools(orders)
         + build_return_tools(orders, policies, today)
+        + build_complaint_tools(complaints)
     )
     return Agent(
         model=build_model(),

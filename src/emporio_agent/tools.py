@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 
 from emporio_agent.catalog import Catalog, Product
+from emporio_agent.complaints import Complaints
 from emporio_agent.orders import Orders
 from emporio_agent.policies import Policies
 
@@ -210,3 +211,36 @@ def build_return_tools(orders: "Orders", policies: "Policies", today) -> list:
         )
 
     return [check_return_eligibility]
+
+
+def build_complaint_tools(complaints: "Complaints") -> list:
+    contacts = "telefone (67) 3341-4444 ou WhatsApp (67) 3321-4500"
+
+    def _save(action, text: str, contact: str, done: str) -> str:
+        try:
+            registration = action(text, contact)
+        except ValueError:
+            return "Faltou a descrição ou o contato (telefone ou e-mail) do cliente. Peça o que falta; nada foi registrado."
+        except OSError:
+            return (
+                "NÃO foi possível registrar agora. Não diga ao cliente que foi registrado; peça desculpas "
+                f"e oriente a falar com a equipe: {contacts}."
+            )
+        return f"{done} Protocolo {registration.protocol}. A equipe retorna em até 24 horas úteis."
+
+    @tool
+    def register_complaint(description: str, contact: str) -> str:
+        """Registra uma reclamação do cliente. Só chame depois de ouvir o cliente e ter o contato
+        dele (telefone ou e-mail) para o retorno; descreva o problema em uma ou duas frases.
+        Só diga que a reclamação foi registrada se esta ferramenta confirmar."""
+        return _save(complaints.register_complaint, description, contact, "Reclamação registrada.")
+
+    @tool
+    def request_human_handoff(reason: str, contact: str) -> str:
+        """Encaminha o cliente para a equipe/gerência quando o assunto foge do que você pode
+        resolver (dúvida sobre aplicação de política, cancelamento de pedido, compra ou reserva).
+        Precisa do contato do cliente (telefone ou e-mail). Só diga que foi encaminhado se
+        esta ferramenta confirmar."""
+        return _save(complaints.request_handoff, reason, contact, "Encaminhado para a equipe.")
+
+    return [register_complaint, request_human_handoff]
