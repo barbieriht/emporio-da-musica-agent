@@ -50,3 +50,42 @@ def test_inactive_promotions_are_ignored(catalog):
 )
 def test_availability_follows_status_first_then_stock(catalog, product_id, expected):
     assert catalog.get_product(product_id).availability == expected
+
+
+def ids(products):
+    return [p.id for p in products]
+
+
+def test_search_by_model_name_ignores_case_and_requires_every_word(catalog):
+    assert ids(catalog.search_products(query="takamine GD20")) == [95]
+
+
+def test_search_by_brand_returns_every_model_of_that_brand(catalog):
+    assert set(ids(catalog.search_products(query="Takamine"))) == {95, 100, 105, 115}
+
+
+def test_search_ignores_accents(catalog):
+    results = catalog.search_products(query="violao nylon")  # category is "Violões"
+
+    assert 81 in ids(results)  # Yamaha C40 Nylon Natural
+
+
+def test_violoes_up_to_1000_reais(catalog):
+    results = catalog.search_products(category="Violões", max_price=1000)
+
+    # literal list taken from the CSV: every Violões product whose price is <= 1000
+    assert set(ids(results)) == {81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 96, 107, 112, 113}
+
+
+def test_price_filter_uses_the_promotional_price(catalog):
+    # Ohana CK-20: list 549, 20% off => 439.20
+    results = catalog.search_products(category="Ukuleles", max_price=450)
+
+    assert 121 in ids(results)
+    assert all(p.price <= 450 for p in results)
+
+
+def test_min_price_filter(catalog):
+    results = catalog.search_products(category="Violões", min_price=11000)
+
+    assert set(ids(results)) == {93, 108}  # Martin D-28 11499 and D-28E 12000
