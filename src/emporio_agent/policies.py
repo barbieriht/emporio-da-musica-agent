@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 import unicodedata
+from decimal import Decimal
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from emporio_agent.money import decimal, round_money
 
 # (largest n of the tier, minimum parcela in R$) from the manual's payment rules
 _TIERS = [(3, 50.0), (6, 80.0), (12, 100.0)]
@@ -50,6 +53,13 @@ class StoreStatus:
 
 
 @dataclass(frozen=True)
+class PaymentOptions:
+    pix_price: float | None  # None when the price is already promotional (no stacking)
+    installments: list[Installment]
+    combined_payment_allowed: bool  # e.g. PIX + card, from R$ 2.000 (assumption: inclusive)
+
+
+@dataclass(frozen=True)
 class ShippingQuote:
     fee: float | None  # None: depends on the destination CEP
     delivery_time: str
@@ -74,10 +84,17 @@ class Policies:
         for n in range(1, 13):
             minimum = next(m for top, m in _TIERS if n <= top)
             if n == 1 or price / n >= minimum:
-                options.append(Installment(n, round(price / n, 2)))
+                options.append(Installment(n, round_money(decimal(price) / n)))
             else:
                 break
         return options
+
+    def payment_options(self, price: float, is_promotional: bool) -> PaymentOptions:
+        return PaymentOptions(
+            pix_price=None if is_promotional else round_money(decimal(price) * Decimal('0.95')),
+            installments=self.installment_options(price),
+            combined_payment_allowed=price >= 2000,
+        )
 
     def shipping_quote(self, order_total: float, city: str) -> ShippingQuote:
         if _plain(city) == "campo grande":

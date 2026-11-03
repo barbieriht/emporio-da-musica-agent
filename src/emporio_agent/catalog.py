@@ -4,6 +4,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from emporio_agent.money import decimal, round_money
+
 
 @dataclass(frozen=True)
 class Product:
@@ -43,7 +45,7 @@ class Catalog:
                 name=r["name"],
                 category=categories[int(r["category_id"])],
                 list_price=price,
-                price=round(price * (100 - discount) / 100, 2) if discount else price,
+                price=round_money(decimal(price) * (100 - discount) / 100) if discount else price,
                 discount_percent=discount,
                 availability=_availability(r["status"], int(r["stock_quantity"])),
                 description=r["description"],

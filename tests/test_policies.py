@@ -160,3 +160,51 @@ def test_after_hours_notice_mentions_a_national_holiday(policies):
         "🕘 Hoje é feriado nacional (Independência do Brasil) e a loja está fechada. "
         "Reabre em terça-feira, 08/09, às 09:00. Mas posso te ajudar por aqui mesmo!"
     )
+
+
+from emporio_agent.catalog import Catalog
+
+
+@pytest.fixture(scope="module")
+def products():
+    return Catalog.from_csv_dir(DATA_DIR)
+
+
+def options_for(policies, products, product_id):
+    p = products.get_product(product_id)
+    return policies.payment_options(price=p.price, is_promotional=p.discount_percent is not None)
+
+
+def test_pix_gives_5_percent_off_a_full_price_product(policies, products):
+    options = options_for(policies, products, 95)  # Takamine GD20, 2199, no promotion
+
+    assert options.pix_price == 2089.05
+
+
+def test_pix_discount_does_not_stack_on_a_promotional_price(policies, products):
+    options = options_for(policies, products, 94)  # Taylor 110e: 5999 with 8% off => 5519.08
+
+    assert options.pix_price is None
+
+
+@pytest.mark.parametrize("product_id, max_n", [(95, 12), (94, 12), (119, 3)])
+def test_payment_options_include_the_installment_plan_of_the_effective_price(policies, products, product_id, max_n):
+    # 119 (Shelby SU-21S) costs 159.90, so it only reaches 3x
+    assert [i.n for i in options_for(policies, products, product_id).installments] == list(range(1, max_n + 1))
+
+
+@pytest.mark.parametrize("price, allowed", [(799, False), (1999.99, False), (2000, True), (2199, True)])
+def test_combining_payment_methods_is_allowed_from_2000_reais(policies, price, allowed):
+    assert policies.payment_options(price, is_promotional=False).combined_payment_allowed is allowed
+
+
+@pytest.mark.parametrize(
+    "product_id, pix",
+    [
+        (96, 759.91),   # 799.90 x 0.95 = 759.905 exactly -> commercial rounding goes up
+        (119, 151.91),  # 159.90 x 0.95 = 151.905
+        (95, 2089.05),
+    ],
+)
+def test_pix_price_uses_commercial_rounding(policies, products, product_id, pix):
+    assert options_for(policies, products, product_id).pix_price == pix

@@ -244,3 +244,37 @@ def build_complaint_tools(complaints: "Complaints") -> list:
         return _save(complaints.request_handoff, reason, contact, "Encaminhado para a equipe.")
 
     return [register_complaint, request_human_handoff]
+
+
+def build_payment_tools(catalog: Catalog, policies: "Policies") -> list:
+    @tool
+    def get_payment_options(product_id: int) -> str:
+        """Formas de pagamento de um produto pelo id: preço no PIX (5% só se o produto não estiver
+        em promoção), débito, boleto, parcelas no crédito sem juros e se dá para combinar formas de
+        pagamento. Use sempre que o cliente perguntar como pagar, PIX, desconto à vista ou parcelas
+        de um produto; não calcule esses valores de cabeça."""
+        product = catalog.get_product(product_id)
+        if product is None:
+            return "Produto não encontrado."
+        options = policies.payment_options(product.price, is_promotional=product.discount_percent is not None)
+        top = options.installments[-1]
+        lines = [format_product(product)]
+        if options.pix_price is not None:
+            lines.append(f"PIX: {_brl(options.pix_price)} (5% de desconto sobre o preço de tabela).")
+        else:
+            lines.append("PIX: sem o desconto de 5%, porque o preço já é promocional (promoções não são cumulativas).")
+        lines.append(f"Cartão de débito: {_brl(product.price)} à vista.")
+        lines.append(f"Boleto: {_brl(product.price)} à vista (compensação em até 3 dias úteis).")
+        lines.append(
+            f"Cartão de crédito: até {top.n}x de {_brl(top.value)} sem juros. Opções: "
+            + ", ".join(f"{i.n}x de {_brl(i.value)}" for i in options.installments)
+        )
+        if options.combined_payment_allowed:
+            lines.append("Dá para combinar formas de pagamento (ex.: PIX + cartão), pois a compra passa de R$ 2.000.")
+        else:
+            lines.append("Combinar formas de pagamento só é permitido em compras acima de R$ 2.000.")
+        if product.availability != "available":
+            lines.append("Atenção: o produto não está disponível para compra agora; avise o cliente.")
+        return "\n".join(lines)
+
+    return [get_payment_options]

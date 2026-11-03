@@ -9,7 +9,7 @@ from emporio_agent.config import build_model, today
 from emporio_agent.orders import Orders
 from emporio_agent.policies import STORE_TZ, Policies
 from emporio_agent.prompt import GREETING
-from emporio_agent.tools import build_catalog_tools, build_complaint_tools, build_order_tools, build_policy_tools, build_return_tools
+from emporio_agent.tools import build_catalog_tools, build_complaint_tools, build_order_tools, build_payment_tools, build_policy_tools, build_return_tools
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
@@ -31,6 +31,7 @@ def build_agent() -> Agent:
         + build_order_tools(orders)
         + build_return_tools(orders, policies, today)
         + build_complaint_tools(complaints)
+        + build_payment_tools(catalog, policies)
     )
     return Agent(
         model=build_model(),
