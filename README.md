@@ -11,6 +11,7 @@ educação o que foge do escopo. O que precisa estar certo (preços, prazos, par
 
 - Conversas de exemplo (com as ferramentas chamadas em cada turno): [`examples/`](examples/)
 - Especificação que guiou o trabalho: [`SPEC.md`](SPEC.md) e [issue #1](https://github.com/barbieriht/emporio-da-musica-agent/issues/1)
+- Como o projeto foi conduzido com o Claude Code e as skills `mattpocock-skills`: [seção abaixo](#skills-do-claude-code-usadas-mattpocock-skills)
 
 ## Como rodar
 
@@ -327,6 +328,49 @@ opções acima apresentadas para eu escolher.
 - O README dizia que a verificação de pedido era "*stateless*" depois que ela deixou de ser; corrigido na hora e revisado aqui.
 - Vários testes novos do verificador passaram de primeira (o código do primeiro ciclo já os cobria); para não confiar
   em teste que não falha, o assistente desligou o verificador e conferiu que 5 deles quebram.
+
+## Skills do Claude Code usadas (`mattpocock-skills`)
+
+O projeto foi conduzido com o Claude Code e o plugin de *skills* **`mattpocock-skills`** (marketplace
+`claude-plugins-official`, versão 1.3.1). Uma *skill* é um pacote de instruções que o Claude Code carrega para um tipo
+de tarefa; estas empurram para um fluxo de engenharia disciplinado: **especificação → tickets em fatias verticais →
+TDD em fronteiras de teste combinadas antes**. Usei quatro:
+
+| Skill | Para que serviu aqui | Onde aparece no repositório |
+|---|---|---|
+| `setup-matt-pocock-skills` | Configurar onde ficam as issues (GitHub, via `gh`), o vocabulário de rótulos de triagem e o layout de documentação de domínio | [`CLAUDE.md`](CLAUDE.md) (bloco "Agent skills") e [`docs/agents/`](docs/agents/) (`issue-tracker.md`, `triage-labels.md`, `domain.md`) |
+| `to-spec` | Transformar o PDF do desafio, os CSVs e o manual numa especificação (problema, histórias de usuário, decisões, testes, fora de escopo) e publicá-la como issue com o rótulo `ready-for-agent` | [`SPEC.md`](SPEC.md) e a issue #1 |
+| `to-tickets` | Quebrar a especificação em *tracer bullets*: fatias verticais, cada uma demonstrável sozinha, com os bloqueios entre elas explícitos | Issues #2 a #8 (primeira rodada) e #9 a #14 (endurecimento), todas com "Parent" e "Blocked by" |
+| `tdd` | Conduzir cada ticket em *red → green*, um teste por vez, só em fronteiras (*seams*) confirmadas | Os 163 testes em [`tests/`](tests/) e o histórico de commits |
+
+**Como as regras das skills mudaram o trabalho, na prática:**
+- **Fronteiras de teste antes de qualquer teste.** A skill `tdd` não permite escrever teste numa fronteira não confirmada.
+  Por isso cada ticket começou com o Claude propondo a fronteira (o que ela pega e o que não pega) e eu confirmando:
+  `Agent.respond` com modelo falso; as interfaces `Catalog`, `Policies`, `Orders`, `assess_return` e `Complaints`.
+  Tudo fora disso (CLI, camada fina de *tools*, comportamento do LLM real) ficou deliberadamente sem teste automatizado.
+- **Fatias verticais, não camadas.** Os tickets cortam o caminho inteiro (dados → regra → ferramenta → prompt → CLI),
+  então cada um pôde ser verificado com o modelo real antes de seguir (e foi: eu rodava a CLI e colava a saída).
+- **Um ciclo por vez, sem testes "imaginados".** Os testes nasceram de comportamento observável, com valores esperados
+  independentes (literais conferidos nos CSVs e no manual), evitando testes que repetem a fórmula do código.
+- **Decisões de produto viram perguntas.** A skill `to-spec` manda sintetizar a especificação sem entrevistar o usuário
+  (e confirmar só as fronteiras de teste). Como pedi para participar das decisões, o Claude me perguntou também cada
+  decisão de produto (regras de busca, parcelas, janela de devolução, tempo de memória da verificação...), e as
+  respostas ficaram registradas nas issues.
+- **Rótulos e rastreabilidade.** Issues com `ready-for-agent`, comentários de status em cada uma e fechamento só depois
+  de verificar com o modelo real (um commit com "Closes #2" chegou a fechar uma issue cedo demais; foi reaberta).
+
+**Onde me afastei das skills, ou onde elas encontraram limites:**
+- Em alguns ciclos agrupei testes relacionados antes de implementar (por exemplo, os de formato e expiração da
+  verificação de pedidos), em vez de um único teste por vez; e vários testes passaram de primeira porque o código do
+  ciclo anterior já os cobria. Quando isso aconteceu, conferi que eles realmente falham (checagem de mutação no
+  verificador de respostas).
+- O `gh` instalado (2.4) é antigo: não tem sub-issues nativas, dependências entre issues nem `--comment` no `close`.
+  As dependências ficaram em texto ("Blocked by") e o fechamento foi comentário + `close`.
+- A skill de modelagem de domínio (`GLOSSARY.md` e ADRs) está configurada em `docs/agents/domain.md`, mas **não usei**:
+  as decisões foram registradas nas issues e no README. Também não usei as skills de revisão de código, `grilling`,
+  `prototype` ou `wizard`; o enunciado pedia um protótipo e o ciclo especificação → tickets → TDD bastou.
+- O arquivo [`CLAUDE.md`](CLAUDE.md) e `docs/agents/` são configuração da ferramenta de desenvolvimento, não do agente
+  Maestro: o agente em si não depende de nenhuma skill nem do Claude Code.
 
 ## Estrutura do repositório
 

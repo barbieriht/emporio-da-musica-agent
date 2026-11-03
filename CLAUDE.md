@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues and specs live in GitHub Issues (via the `gh` CLI); the repo has no git remote yet. See `docs/agents/issue-tracker.md`.
+Issues and specs live in GitHub Issues (via the `gh` CLI), repo `barbieriht/emporio-da-musica-agent`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
