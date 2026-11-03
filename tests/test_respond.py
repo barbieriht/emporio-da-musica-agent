@@ -1,5 +1,6 @@
 import itertools
 
+import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
@@ -93,3 +94,18 @@ def test_every_model_call_carries_the_maestro_persona_as_a_system_prompt():
         assert "Maestro" in prompts[0]
         assert "assistente virtual" in prompts[0]
         assert "Empório da Música" in prompts[0]
+
+
+class ExplodingModel(RecordingFakeModel):
+    def _generate(self, messages, *args, **kwargs):
+        raise RuntimeError("503 UNAVAILABLE")
+
+
+def test_a_failed_model_call_leaves_the_session_history_untouched():
+    agent = Agent(model=ExplodingModel(messages=iter([]), received=[], system_prompts=[]))
+    session = Session()
+
+    with pytest.raises(RuntimeError):
+        agent.respond(session, "Oi")
+
+    assert session.history == []

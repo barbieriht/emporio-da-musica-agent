@@ -24,7 +24,14 @@ def main() -> None:
         if message.lower() in EXIT_WORDS:
             break
         if message:
-            print(f"Maestro: {agent.respond(session, message)}\n")
+            try:
+                print(f"Maestro: {agent.respond(session, message)}\n")
+            except Exception as error:  # provider outage, quota, network...
+                print(
+                    "Maestro: Opa, estou com um problema técnico agora. Tente de novo em "
+                    "instantes ou fale com a equipe no (67) 3341-4444.\n"
+                    f"[detalhe técnico: {type(error).__name__}: {str(error)[:200]}]\n"
+                )
 
 
 if __name__ == "__main__":

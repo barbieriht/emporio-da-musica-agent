@@ -22,6 +22,14 @@ class Agent:
         self._model = model.bind_tools(list(tools)) if tools else model
 
     def respond(self, session: Session, message: str) -> str:
+        checkpoint = len(session.history)
+        try:
+            return self._respond(session, message)
+        except Exception:
+            del session.history[checkpoint:]  # don't keep a half-finished turn
+            raise
+
+    def _respond(self, session: Session, message: str) -> str:
         session.history.append(HumanMessage(content=message))
         for _ in range(MAX_MODEL_CALLS):
             reply = self._model.invoke([SystemMessage(content=SYSTEM_PROMPT), *session.history])
