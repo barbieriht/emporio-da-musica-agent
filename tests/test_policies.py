@@ -141,3 +141,22 @@ def test_utc_times_are_converted_to_campo_grande_time(policies):
     # 13:00 UTC on Monday 2026-11-09 is 09:00 in Campo Grande (UTC-4)
     assert policies.store_status(datetime(2026, 11, 9, 13, 0, tzinfo=timezone.utc)).is_open is True
     assert policies.store_status(datetime(2026, 11, 9, 12, 59, tzinfo=timezone.utc)).is_open is False
+
+
+def test_no_after_hours_notice_while_the_store_is_open(policies):
+    assert policies.after_hours_notice(at(2026, 11, 9, 10)) is None
+
+
+def test_after_hours_notice_says_when_the_store_reopens(policies):
+    # Sunday 2026-11-08 (not a holiday) -> reopens Monday
+    assert policies.after_hours_notice(at(2026, 11, 8, 10)) == (
+        "🕘 A loja está fechada agora e reabre em segunda-feira, 09/11, às 09:00. "
+        "Mas posso te ajudar por aqui mesmo!"
+    )
+
+
+def test_after_hours_notice_mentions_a_national_holiday(policies):
+    assert policies.after_hours_notice(at(2026, 9, 7, 10)) == (
+        "🕘 Hoje é feriado nacional (Independência do Brasil) e a loja está fechada. "
+        "Reabre em terça-feira, 08/09, às 09:00. Mas posso te ajudar por aqui mesmo!"
+    )

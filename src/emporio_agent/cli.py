@@ -1,10 +1,11 @@
 from emporio_agent.agent import Agent, Session
+from datetime import datetime
 from pathlib import Path
 
 from emporio_agent.catalog import Catalog
 from emporio_agent.config import build_model, today
 from emporio_agent.orders import Orders
-from emporio_agent.policies import Policies
+from emporio_agent.policies import STORE_TZ, Policies
 from emporio_agent.prompt import GREETING
 from emporio_agent.tools import build_catalog_tools, build_order_tools, build_policy_tools, build_return_tools
 
@@ -23,7 +24,11 @@ def build_agent() -> Agent:
         + build_order_tools(orders)
         + build_return_tools(orders, policies, today)
     )
-    return Agent(model=build_model(), tools=tools)
+    return Agent(
+        model=build_model(),
+        tools=tools,
+        after_hours_notice=lambda: policies.after_hours_notice(datetime.now(STORE_TZ)),
+    )
 
 
 def main() -> None:

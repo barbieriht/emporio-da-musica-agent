@@ -24,9 +24,9 @@ class RecordingFakeModel(GenericFakeChatModel):
         return self
 
 
-def make_agent(*replies, tools=()):
+def make_agent(*replies, tools=(), after_hours_notice=None):
     model = RecordingFakeModel(messages=iter(replies), received=[], system_prompts=[])
-    return Agent(model=model, tools=list(tools)), model
+    return Agent(model=model, tools=list(tools), after_hours_notice=after_hours_notice), model
 
 
 def test_respond_returns_the_model_reply_to_a_greeting():
@@ -109,3 +109,49 @@ def test_a_failed_model_call_leaves_the_session_history_untouched():
         agent.respond(session, "Oi")
 
     assert session.history == []
+
+
+NOTICE = "🕘 A loja está fechada agora e reabre em segunda-feira, 09/11, às 09:00."
+
+
+def test_after_hours_notice_is_shown_only_on_the_first_reply_of_the_session():
+    agent, model = make_agent(
+        AIMessage(content="Claro, temos violões!"),
+        AIMessage(content="Custa R$ 599,90."),
+        after_hours_notice=lambda: NOTICE,
+    )
+    session = Session()
+
+    first = agent.respond(session, "Vocês têm violão?")
+    second = agent.respond(session, "Quanto custa o Yamaha C40?")
+
+    assert first == f"{NOTICE}\n\nClaro, temos violões!"
+    assert second == "Custa R$ 599,90."
+    # the notice is not part of what the model sees as its own previous answer
+    assert model.received[1] == ["Vocês têm violão?", "Claro, temos violões!", "Quanto custa o Yamaha C40?"]
+
+
+def test_a_notice_that_was_not_needed_at_first_is_shown_when_the_store_closes_later():
+    states = iter([None, NOTICE, NOTICE])  # open, then closed, then still closed
+    agent, _ = make_agent(
+        AIMessage(content="Oi!"), AIMessage(content="Temos sim."), AIMessage(content="Tudo certo."),
+        after_hours_notice=lambda: next(states),
+    )
+    session = Session()
+
+    replies = [agent.respond(session, m) for m in ("Oi", "Tem violão?", "Obrigado")]
+
+    assert replies == ["Oi!", f"{NOTICE}\n\nTemos sim.", "Tudo certo."]
+
+
+def test_a_failed_model_call_does_not_use_up_the_notice():
+    agent = Agent(
+        model=ExplodingModel(messages=iter([]), received=[], system_prompts=[]),
+        after_hours_notice=lambda: NOTICE,
+    )
+    session = Session()
+
+    with pytest.raises(RuntimeError):
+        agent.respond(session, "Oi")
+
+    assert session.after_hours_notice_shown is False

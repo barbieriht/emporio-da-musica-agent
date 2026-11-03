@@ -36,6 +36,12 @@ _HOLIDAYS = {
 }
 
 
+_WEEKDAYS_PT = [
+    "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
+    "sexta-feira", "sábado", "domingo",
+]
+
+
 @dataclass(frozen=True)
 class StoreStatus:
     is_open: bool
@@ -92,6 +98,20 @@ class Policies:
             if opens and opens > local.replace(tzinfo=None):
                 return StoreStatus(False, opens.replace(tzinfo=STORE_TZ), holiday)
         raise AssertionError("store never opens")  # unreachable: opens every Mon-Sat
+
+    def after_hours_notice(self, now: datetime) -> str | None:
+        status = self.store_status(now)
+        if status.is_open:
+            return None
+        reopens = (
+            f"{_WEEKDAYS_PT[status.next_open.weekday()]}, "
+            f"{status.next_open:%d/%m}, às {status.next_open:%H:%M}"
+        )
+        if status.holiday:
+            head = f"Hoje é feriado nacional ({status.holiday}) e a loja está fechada. Reabre em {reopens}."
+        else:
+            head = f"A loja está fechada agora e reabre em {reopens}."
+        return f"🕘 {head} Mas posso te ajudar por aqui mesmo!"
 
 
 def _plain(text: str) -> str:
