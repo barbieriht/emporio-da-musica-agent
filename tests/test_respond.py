@@ -117,7 +117,7 @@ NOTICE = "🕘 A loja está fechada agora e reabre em segunda-feira, 09/11, às 
 def test_after_hours_notice_is_shown_only_on_the_first_reply_of_the_session():
     agent, model = make_agent(
         AIMessage(content="Claro, temos violões!"),
-        AIMessage(content="Custa R$ 599,90."),
+        AIMessage(content="Custa o preço de tabela."),
         after_hours_notice=lambda: NOTICE,
     )
     session = Session()
@@ -126,7 +126,7 @@ def test_after_hours_notice_is_shown_only_on_the_first_reply_of_the_session():
     second = agent.respond(session, "Quanto custa o Yamaha C40?")
 
     assert first == f"{NOTICE}\n\nClaro, temos violões!"
-    assert second == "Custa R$ 599,90."
+    assert second == "Custa o preço de tabela."
     # the notice is not part of what the model sees as its own previous answer
     assert model.received[1] == ["Vocês têm violão?", "Claro, temos violões!", "Quanto custa o Yamaha C40?"]
 
@@ -176,3 +176,168 @@ def test_tools_can_reach_the_session_that_is_being_served():
 
     assert seen == [session]
     assert seen[0] is session
+
+
+# ---------------------------------------------------------------------------
+# grounding: values and dates in the final reply must come from tool outputs / the customer
+# ---------------------------------------------------------------------------
+def price_tool(text):
+    @tool
+    def get_price() -> str:
+        """Devolve o preço."""
+        return text
+
+    return get_price
+
+
+def call_price():
+    return AIMessage(content="", tool_calls=[{"name": "get_price", "args": {}, "id": "p1"}])
+
+
+def test_a_reply_with_a_price_no_tool_returned_is_rewritten():
+    agent, model = make_agent(
+        call_price(),
+        AIMessage(content="O Yamaha custa R$ 699,90."),   # wrong: the tool said 599,90
+        AIMessage(content="O Yamaha custa R$ 599,90."),   # corrected after the feedback
+        tools=[price_tool("Yamaha C40: R$ 599,90")],
+    )
+    session = Session()
+
+    reply = agent.respond(session, "Quanto custa o Yamaha C40?")
+
+    assert reply == "O Yamaha custa R$ 599,90."
+    assert any("R$ 699,90" in m for m in model.received[2])  # the feedback names the offending value
+    assert [m.content for m in session.history if m.type == "ai" and m.content] == ["O Yamaha custa R$ 599,90."]
+    assert not any("R$ 699,90" in str(m.content) for m in session.history)
+
+
+@pytest.mark.parametrize(
+    "written",
+    ["R$ 1.000,00", "R$ 1000", "R$ 1.000", "R$1000,00", "R$ 1 000,00", "R$ 1 000"],
+)
+def test_formatting_differences_are_tolerated(written):
+    agent, model = make_agent(
+        call_price(),
+        AIMessage(content=f"Fica {written} à vista."),
+        tools=[price_tool("Violão X: R$ 1.000,00")],
+    )
+
+    reply = agent.respond(Session(), "Quanto custa?")
+
+    assert reply == f"Fica {written} à vista."
+    assert len(model.received) == 2  # accepted at once: no rewrite round
+
+
+def test_a_value_from_an_earlier_turn_or_from_the_customer_is_legitimate():
+    agent, _ = make_agent(
+        call_price(),
+        AIMessage(content="O Yamaha custa R$ 599,90."),
+        AIMessage(content="Continua R$ 599,90, e dentro do seu limite de R$ 800."),
+        tools=[price_tool("Yamaha C40: R$ 599,90")],
+    )
+    session = Session()
+
+    agent.respond(session, "Quanto custa o Yamaha C40?")
+    second = agent.respond(session, "Cabe nos meus R$ 800?")
+
+    assert second == "Continua R$ 599,90, e dentro do seu limite de R$ 800."
+
+
+def test_a_derived_value_is_not_accepted_even_if_the_arithmetic_is_right():
+    agent, model = make_agent(
+        call_price(),
+        AIMessage(content="Você economiza R$ 200,00."),   # 1000 - 800, but no tool said 200
+        AIMessage(content="O preço é R$ 800,00, de R$ 1.000,00."),
+        tools=[price_tool("De R$ 1.000,00 por R$ 800,00")],
+    )
+
+    reply = agent.respond(Session(), "Tem desconto?")
+
+    assert reply == "O preço é R$ 800,00, de R$ 1.000,00."
+    assert len(model.received) == 3
+
+
+def test_replies_without_values_are_never_questioned():
+    agent, model = make_agent(AIMessage(content="Posso ajudar com violões, baixos e mais."))
+
+    assert agent.respond(Session(), "Oi") == "Posso ajudar com violões, baixos e mais."
+    assert len(model.received) == 1
+
+
+@pytest.mark.parametrize(
+    "written, accepted",
+    [
+        ("28/02/2026", True),
+        ("28/02", True),          # the day and month are known
+        ("01/03/2026", False),    # nobody said this date
+        ("28/02/2027", False),    # right day and month, wrong year
+    ],
+)
+def test_dates_must_come_from_the_tools_too(written, accepted):
+    corrected = AIMessage(content="A previsão é 28/02/2026.")
+    agent, model = make_agent(
+        call_price(),
+        AIMessage(content=f"Chega em {written}."),
+        corrected,
+        tools=[price_tool("Previsão de entrega: 28/02/2026.")],
+    )
+
+    reply = agent.respond(Session(), "Quando chega?")
+
+    assert (reply == f"Chega em {written}.") is accepted
+    assert len(model.received) == (2 if accepted else 3)
+
+
+def test_after_a_second_unsupported_reply_a_safe_message_is_sent_and_nothing_wrong_is_kept():
+    agent, model = make_agent(
+        call_price(),
+        AIMessage(content="Custa R$ 111,00."),
+        AIMessage(content="Custa R$ 222,00."),
+        tools=[price_tool("Yamaha C40: R$ 599,90")],
+    )
+    session = Session()
+
+    reply = agent.respond(session, "Quanto custa?")
+
+    assert reply.startswith("Não consegui confirmar os valores com segurança")
+    assert "(67) 3341-4444" in reply and "R$" not in reply
+    assert not any("111,00" in str(m.content) or "222,00" in str(m.content) for m in session.history)
+    assert session.history[-1].content == reply
+
+
+def test_the_rewrite_round_may_call_a_tool_to_get_the_missing_value():
+    agent, model = make_agent(
+        AIMessage(content="O Yamaha custa R$ 599,90."),   # from memory: rejected
+        call_price(),                                     # after the feedback it consults the tool
+        AIMessage(content="O Yamaha custa R$ 599,90."),
+        tools=[price_tool("Yamaha C40: R$ 599,90")],
+    )
+
+    assert agent.respond(Session(), "Quanto custa o Yamaha C40?") == "O Yamaha custa R$ 599,90."
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "A combinação vale a partir de R$ 1.000.",          # sentence-ending dot after the value
+        "Valor: R$ 1.000. Quer ver outras opções?",
+        "Fica (R$ 1.000) à vista.",
+        "Fica R$ 1.000, sem juros.",
+        "São R$ 1.000 em 12 parcelas.",                     # a number right after, after a space
+        "Fica R$ 1000.00 no total.",                        # dot as the decimal separator
+    ],
+)
+def test_punctuation_around_a_value_does_not_confuse_the_check(sentence):
+    agent, model = make_agent(
+        call_price(), AIMessage(content=sentence), tools=[price_tool("Violão X: R$ 1.000,00")]
+    )
+
+    assert agent.respond(Session(), "Quanto custa?") == sentence
+    assert len(model.received) == 2
+
+
+def test_unreadable_numbers_never_crash_the_agent():
+    garbage = AIMessage(content="Custa R$ 1..2 ou R$ ,5 ou R$ 3.4.5 hoje.")
+    agent, _ = make_agent(garbage, garbage)  # no evidence: rewritten once, then the safe message
+
+    assert isinstance(agent.respond(Session(), "Oi"), str)

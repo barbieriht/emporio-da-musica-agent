@@ -3,7 +3,7 @@
 Dados do manual (endereço) e consulta em tempo real ao horário de funcionamento.
 
 - Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 12:52
+- Gravado em: 2026-11-03 13:37
 - Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
 
 ---
@@ -33,11 +33,7 @@ Catálogo: mais de 300 instrumentos de marcas nacionais e internacionais (guitar
 
 </details>
 
-**Maestro:** Claro! A Empório da Música fica na:
-
-**Rua 14 de Maio, 3200 – Centro, Campo Grande – MS, CEP 79202‑333**
-
-Se precisar falar com a gente, o telefone da loja é **(67) 3341‑4444** e o WhatsApp **(67) 3321‑4500**. Qualquer outra dúvida, é só chamar!
+**Maestro:** A gente fica na Rua **14 de Maio, 3200**, no Centro de Campo Grande – MS, CEP 79202‑333. Se precisar de mais alguma coisa, é só chamar!
 
 **Cliente:** E vocês estão abertos agora?
 

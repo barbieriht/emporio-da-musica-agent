@@ -3,7 +3,7 @@
 Filtro por categoria e preço sobre o catálogo real; pergunta de acompanhamento sobre um modelo.
 
 - Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 12:51
+- Gravado em: 2026-11-03 13:37
 - Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
 
 ---
@@ -21,7 +21,7 @@ Como posso ajudar?
 
 **Cliente:** Quais opções de violões disponíveis custando até R$1000?
 
-<details><summary>🔧 <code>search_products(category='Violões', max_price=1000)</code></summary>
+<details><summary>🔧 <code>search_products(category='Violões', max_price=1000, query='')</code></summary>
 
 ```
 [id 83] Tagima Memphis AC-39 Nylon Natural (Violões): R$ 429,90 — disponível
@@ -37,24 +37,22 @@ Como posso ajudar?
 
 </details>
 
-**Maestro:** Aqui vão alguns violões que estão dentro do seu limite de R$ 1 000,00:
+**Maestro:** Aqui vão os violões que temos no catálogo com preço até R$ 1.000:
 
-| Modelo | Tipo de corda | Preço |
-|--------|---------------|-------|
-| **Tagima Memphis AC‑39** – Nylon – Natural | Nylon | R$ 429,90 |
-| **Rozini RC‑104** – Nylon – Estudante | Nylon | R$ 459,90 |
-| **Shelby SN‑100** – Aço – Preto | Aço | R$ 549,00 |
-| **Giannini GF‑1R** – Aço – Sunburst | Aço | R$ 579,90 |
-| **Yamaha C40** – Nylon – Natural | Nylon | R$ 599,90 |
-| **Giannini GN‑15** – Nylon – Cedro Natural | Nylon | R$ 689,00 |
-| **Yamaha F310** – Aço – Natural | Aço | R$ 699,90 |
-| **Tagima Dallas Tuner** – Aço – Natural | Aço | R$ 749,00 |
-| **Shelby SGD‑195E** – Elétrico Aço – Sunburst | Aço (elétrico) | R$ 799,00 |
-| **Yamaha C70** – Nylon – Natural | Nylon | R$ 849,00 |
+| Código | Modelo | Preço |
+|--------|------------------------------|-----------|
+| 83 | Tagima Memphis AC‑39 Nylon – Natural | R$ 429,90 |
+| 85 | Rozini RC‑104 Nylon – Estudante | R$ 459,90 |
+| 89 | Shelby SN‑100 Folk Aço – Preto | R$ 549,00 |
+| 88 | Giannini GF‑1R Aço Folk – Sunburst | R$ 579,90 |
+| 81 | Yamaha C40 Nylon – Natural | R$ 599,90 |
+| 84 | Giannini GN‑15 Nylon – Cedro Natural | R$ 689,00 |
+| 87 | Yamaha F310 Aço – Natural | R$ 699,90 |
+| 86 | Tagima Dallas Tuner Aço – Natural | R$ 749,00 |
+| 107 | Shelby SGD‑195E Elétrico Aço – Sunburst | R$ 799,00 |
+| 82 | Yamaha C70 Nylon – Natural | R$ 849,00 |
 
-Todos estão disponíveis em estoque.
-
-Precisa de mais detalhes sobre algum modelo (especificações, opções de parcelamento ou frete) ou quer saber como garantir o seu? Estou à disposição!
+Se quiser saber mais detalhes de algum modelo (especificações, disponibilidade em cores, etc.) ou comparar opções, é só me dizer o código do produto que eu trago as informações completas. Precisa de ajuda com pagamento, frete ou alguma outra coisa? Estou à disposição!
 
 **Cliente:** Me fala mais do Yamaha F310.
 
@@ -68,22 +66,17 @@ Especificações: top: Spruce, back_sides: Meranti, neck: Nato, strings: steel, 
 
 </details>
 
-**Maestro:** **Yamaha F310 – Aço – Natural**
+**Maestro:** **Yamaha F310 – Aço (Natural)**  
 
-- **Preço:** R$ 699,90 (disponível em estoque)  
-- **Descrição:** Violão folk de corpo robusto, muito apreciado por iniciantes e músicos intermediários. O timbre é encorpado e equilibrado, ideal para estilos acústicos e de acompanhamento.  
-- **Especificações técnicas**  
+- **Preço:** R$ 699,90 (disponível)  
+- **Descrição:** Violão folk de aço da Yamaha, muito popular entre iniciantes e músicos intermediários. O corpo robusto oferece um timbre encorpado e equilibrado, ideal para diversos estilos.  
+- **Especificações técnicas:**  
   - **Tampo (top):** Spruce (abeto)  
-  - **Laterais e fundo (back / sides):** Meranti  
+  - **Laterais e fundo (back & sides):** Meranti  
   - **Braço (neck):** Nato  
   - **Cordas:** Steel (aço)  
-  - **Escala (scale):** 634 mm  
+  - **Escala:** 634 mm  
   - **Eletrônica:** Não possui (acústico puro)  
   - **Cor:** Natural  
 
-Se quiser saber como parcelar ou o valor do frete, me informe:
-
-1. **Parcelamento:** basta dizer o número de parcelas que deseja (até 12 x sem juros) que eu calculo o valor de cada parcela.  
-2. **Frete:** preciso da sua cidade (ou CEP) para gerar a cotação de entrega e prazo.
-
-Fico no aguardo para complementar a informação ou ajudar na compra!
+Se quiser saber sobre formas de pagamento, parcelamento ou frete para a sua cidade, é só me dizer. Posso também comparar com outros modelos ou ajudar com qualquer outra dúvida que você tenha!

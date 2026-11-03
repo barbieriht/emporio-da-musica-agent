@@ -3,7 +3,7 @@
 Produto ativo com estoque zero: o agente não confirma disponibilidade, sugere alternativas e calcula parcelas.
 
 - Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 12:52
+- Gravado em: 2026-11-03 13:38
 - Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
 
 ---
@@ -29,31 +29,25 @@ Como posso ajudar?
 
 </details>
 
-<details><summary>🔧 <code>get_product_details(product_id=96)</code></summary>
+**Maestro:** Oi! Temos o violão Giannini GF‑3D Dreadnought Sunburst, mas ele está sem estoque no momento. Se quiser, posso buscar algum modelo similar que esteja disponível ou deixar seu contato para avisarmos assim que chegar. Me avisa o que prefere!
+
+**Cliente:** Quanto fica o Shelby SGD-195E? Dá pra parcelar em quantas vezes?
+
+<details><summary>🔧 <code>get_product_details(product_id=0)</code></summary>
 
 ```
-[id 96] Giannini GF-3D Dreadnought Sunburst (Violões): R$ 799,90 — sem estoque no momento
-Descrição: Violão dreadnought com corpo amplo e acabamento Sunburst. Volume alto e graves profundos, ideal para country e pop.
-Especificações: top: Spruce, back_sides: Sapele, neck: Nato, strings: steel, scale: 650mm, electronics: no, color: Sunburst
-Alternativas disponíveis:
-[id 107] Shelby SGD-195E Elétrico Aço Sunburst (Violões): R$ 799,00 — disponível
-[id 82] Yamaha C70 Nylon Natural (Violões): R$ 849,00 — disponível
-[id 86] Tagima Dallas Tuner Aço Natural (Violões): R$ 749,00 — disponível
+Produto não encontrado.
 ```
 
 </details>
 
-**Maestro:** Oi! O violão Giannini GF‑3D Dreadnought Sunburst está no nosso catálogo, mas no momento ele está **sem estoque**. 
+<details><summary>🔧 <code>search_products(query='Shelby SGD-195E')</code></summary>
 
-Se quiser, temos algumas opções semelhantes que estão disponíveis agora:
+```
+[id 107] Shelby SGD-195E Elétrico Aço Sunburst (Violões): R$ 799,00 — disponível
+```
 
-- **Shelby SGD‑195E Elétrico Aço Sunburst** – R$ 799,00  
-- **Yamaha C70 Nylon Natural** – R$ 849,00  
-- **Tagima Dallas Tuner Aço Natural** – R$ 749,00  
-
-Posso te passar mais detalhes de algum desses modelos ou ajudar com outra coisa?
-
-**Cliente:** Quanto fica o Shelby SGD-195E? Dá pra parcelar em quantas vezes?
+</details>
 
 <details><summary>🔧 <code>get_product_details(product_id=107)</code></summary>
 
@@ -73,14 +67,14 @@ Até 7x de R$ 114,14 sem juros. Opções: 1x de R$ 799,00, 2x de R$ 399,50, 3x d
 
 </details>
 
-**Maestro:** O Shelby SGD‑195E Elétrico Aço Sunburst está por **R$ 799,00** e pode ser parcelado em até **7 vezes sem juros**:
+**Maestro:** O Shelby SGD‑195E está por **R$ 799,00** e está disponível em estoque.
 
-- 1x de R$ 799,00  
+**Parcelamento:** até 7x sem juros de R$ 114,14. Também dá pra pagar à vista (1x R$ 799,00) ou em 2 a 6 vezes, conforme a tabela abaixo:
+
 - 2x de R$ 399,50  
 - 3x de R$ 266,33  
 - 4x de R$ 199,75  
 - 5x de R$ 159,80  
 - 6x de R$ 133,17  
-- 7x de R$ 114,14  
 
-Precisa de mais alguma informação, como prazo de entrega ou formas de pagamento? Estou à disposição!
+Quer saber mais sobre o produto, frete para sua cidade ou como finalizar a compra? É só me dizer!
