@@ -1,3 +1,6 @@
+# Language note: tool descriptions (what the LLM reads to choose a tool) and tool outputs (what the LLM
+# turns into the reply to a Brazilian customer) are deliberately in Brazilian Portuguese; comments and
+# identifiers are in English.
 from langchain_core.tools import tool
 
 from emporio_agent.catalog import Catalog, Product

@@ -1,10 +1,11 @@
-# Informações da loja e se está aberta agora
+# Store information and whether it is open now
 
-Dados do manual (endereço) e consulta em tempo real ao horário de funcionamento.
+Manual data (address) and a live check of the opening hours.
 
-- Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 13:37
-- Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
+- Provider/model: `groq` / `openai/gpt-oss-120b`
+- Recorded on: 2026-11-03 13:37
+- The conversation is in Portuguese on purpose: the agent answers Brazilian customers in pt-BR.
+- The "🔧" blocks show the tools the agent called (arguments and result).
 
 ---
 
@@ -19,7 +20,7 @@ Posso te ajudar com:
 
 Como posso ajudar?
 
-**Cliente:** Qual o endereço da loja?
+**Customer:** Qual o endereço da loja?
 
 <details><summary>🔧 <code>get_policy(topic='loja')</code></summary>
 
@@ -35,7 +36,7 @@ Catálogo: mais de 300 instrumentos de marcas nacionais e internacionais (guitar
 
 **Maestro:** A gente fica na Rua **14 de Maio, 3200**, no Centro de Campo Grande – MS, CEP 79202‑333. Se precisar de mais alguma coisa, é só chamar!
 
-**Cliente:** E vocês estão abertos agora?
+**Customer:** E vocês estão abertos agora?
 
 <details><summary>🔧 <code>is_store_open_now()</code></summary>
 

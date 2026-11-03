@@ -1,10 +1,11 @@
-# Devolução de um pedido real (dados + política)
+# Return of a real order (data + policy)
 
-Verificação por número do pedido e telefone, motivo da devolução e janela de 7 dias aplicada ao pedido 7.
+Verification by order number and phone, the return reason and the 7-day window applied to order 7.
 
-- Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 13:39 (data simulada pelo agente: `AGENT_TODAY=2026-02-20`)
-- Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
+- Provider/model: `groq` / `openai/gpt-oss-120b`
+- Recorded on: 2026-11-03 13:39 (date simulated by the agent: `AGENT_TODAY=2026-02-20`)
+- The conversation is in Portuguese on purpose: the agent answers Brazilian customers in pt-BR.
+- The "🔧" blocks show the tools the agent called (arguments and result).
 
 ---
 
@@ -19,13 +20,13 @@ Posso te ajudar com:
 
 Como posso ajudar?
 
-**Cliente:** Me arrependi da minha compra, posso devolver meu pedido?
+**Customer:** Me arrependi da minha compra, posso devolver meu pedido?
 
 **Maestro:** Oi! Claro, vamos verificar a possibilidade de devolução.
 
 Para isso, preciso do número do seu pedido e do telefone que foi usado na compra. Você pode me passar esses dados?
 
-**Cliente:** Pedido 7, telefone (67) 99789-0123.
+**Customer:** Pedido 7, telefone (67) 99789-0123.
 
 <details><summary>🔧 <code>check_return_eligibility(order_id=7, phone='(67) 99789-0123', reason='arrependimento')</code></summary>
 

@@ -1,3 +1,6 @@
+# Language note: the project's code and documentation are in English, but this module holds text the
+# agent works with and says to Brazilian customers (the system prompt and the fixed greeting), so it is
+# deliberately in Brazilian Portuguese. The same applies to the tool descriptions/outputs in tools.py.
 SYSTEM_PROMPT = """\
 Você é o Maestro, assistente virtual da Empório da Música, loja de instrumentos \
 musicais de Campo Grande/MS ("Sua música começa aqui").

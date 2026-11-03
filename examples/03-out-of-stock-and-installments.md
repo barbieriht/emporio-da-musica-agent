@@ -1,10 +1,11 @@
-# Produto sem estoque, alternativas e parcelamento
+# Out-of-stock product, alternatives and installments
 
-Produto ativo com estoque zero: o agente não confirma disponibilidade, sugere alternativas e calcula parcelas.
+Active product with zero stock: the agent does not confirm availability, suggests alternatives and computes installments.
 
-- Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 13:38
-- Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
+- Provider/model: `groq` / `openai/gpt-oss-120b`
+- Recorded on: 2026-11-03 13:38
+- The conversation is in Portuguese on purpose: the agent answers Brazilian customers in pt-BR.
+- The "🔧" blocks show the tools the agent called (arguments and result).
 
 ---
 
@@ -19,7 +20,7 @@ Posso te ajudar com:
 
 Como posso ajudar?
 
-**Cliente:** Vocês têm o violão Giannini GF-3D?
+**Customer:** Vocês têm o violão Giannini GF-3D?
 
 <details><summary>🔧 <code>search_products(category='Violões', query='Giannini GF-3D')</code></summary>
 
@@ -31,7 +32,7 @@ Como posso ajudar?
 
 **Maestro:** Oi! Temos o violão Giannini GF‑3D Dreadnought Sunburst, mas ele está sem estoque no momento. Se quiser, posso buscar algum modelo similar que esteja disponível ou deixar seu contato para avisarmos assim que chegar. Me avisa o que prefere!
 
-**Cliente:** Quanto fica o Shelby SGD-195E? Dá pra parcelar em quantas vezes?
+**Customer:** Quanto fica o Shelby SGD-195E? Dá pra parcelar em quantas vezes?
 
 <details><summary>🔧 <code>get_product_details(product_id=0)</code></summary>
 

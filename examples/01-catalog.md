@@ -1,10 +1,11 @@
-# Busca no catálogo e detalhes de um produto
+# Catalog search and product details
 
-Filtro por categoria e preço sobre o catálogo real; pergunta de acompanhamento sobre um modelo.
+Category and price filter over the real catalog; a follow-up question about one model.
 
-- Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 13:37
-- Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
+- Provider/model: `groq` / `openai/gpt-oss-120b`
+- Recorded on: 2026-11-03 13:37
+- The conversation is in Portuguese on purpose: the agent answers Brazilian customers in pt-BR.
+- The "🔧" blocks show the tools the agent called (arguments and result).
 
 ---
 
@@ -19,7 +20,7 @@ Posso te ajudar com:
 
 Como posso ajudar?
 
-**Cliente:** Quais opções de violões disponíveis custando até R$1000?
+**Customer:** Quais opções de violões disponíveis custando até R$1000?
 
 <details><summary>🔧 <code>search_products(category='Violões', max_price=1000, query='')</code></summary>
 
@@ -54,7 +55,7 @@ Como posso ajudar?
 
 Se quiser saber mais detalhes de algum modelo (especificações, disponibilidade em cores, etc.) ou comparar opções, é só me dizer o código do produto que eu trago as informações completas. Precisa de ajuda com pagamento, frete ou alguma outra coisa? Estou à disposição!
 
-**Cliente:** Me fala mais do Yamaha F310.
+**Customer:** Me fala mais do Yamaha F310.
 
 <details><summary>🔧 <code>get_product_details(product_id=87)</code></summary>
 

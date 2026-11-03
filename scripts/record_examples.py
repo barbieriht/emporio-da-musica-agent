@@ -17,47 +17,47 @@ from emporio_agent.prompt import GREETING
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "examples"
 
-# name -> (title, what it shows, AGENT_TODAY or None, customer messages)
+# name -> (title, what it shows, AGENT_TODAY or None, customer messages in Portuguese)
 SCENARIOS = {
-    "01-catalogo": (
-        "Busca no catálogo e detalhes de um produto",
-        "Filtro por categoria e preço sobre o catálogo real; pergunta de acompanhamento sobre um modelo.",
+    "01-catalog": (
+        "Catalog search and product details",
+        "Category and price filter over the real catalog; a follow-up question about one model.",
         None,
         [
             "Quais opções de violões disponíveis custando até R$1000?",
             "Me fala mais do Yamaha F310.",
         ],
     ),
-    "02-loja-e-horario": (
-        "Informações da loja e se está aberta agora",
-        "Dados do manual (endereço) e consulta em tempo real ao horário de funcionamento.",
+    "02-store-info-and-hours": (
+        "Store information and whether it is open now",
+        "Manual data (address) and a live check of the opening hours.",
         None,
         [
             "Qual o endereço da loja?",
             "E vocês estão abertos agora?",
         ],
     ),
-    "03-sem-estoque-e-parcelamento": (
-        "Produto sem estoque, alternativas e parcelamento",
-        "Produto ativo com estoque zero: o agente não confirma disponibilidade, sugere alternativas e calcula parcelas.",
+    "03-out-of-stock-and-installments": (
+        "Out-of-stock product, alternatives and installments",
+        "Active product with zero stock: the agent does not confirm availability, suggests alternatives and computes installments.",
         None,
         [
             "Vocês têm o violão Giannini GF-3D?",
             "Quanto fica o Shelby SGD-195E? Dá pra parcelar em quantas vezes?",
         ],
     ),
-    "04-devolucao-pedido-real": (
-        "Devolução de um pedido real (dados + política)",
-        "Verificação por número do pedido e telefone, motivo da devolução e janela de 7 dias aplicada ao pedido 7.",
+    "04-real-order-return": (
+        "Return of a real order (data + policy)",
+        "Verification by order number and phone, the return reason and the 7-day window applied to order 7.",
         "2026-02-20",
         [
             "Me arrependi da minha compra, posso devolver meu pedido?",
             "Pedido 7, telefone (67) 99789-0123.",
         ],
     ),
-    "05-fora-do-escopo-e-privacidade": (
-        "Fora do escopo e privacidade",
-        "Pedido de acessórios, pergunta sem relação com a loja e tentativa de ver um pedido com telefone errado.",
+    "05-out-of-scope-and-privacy": (
+        "Out of scope and privacy",
+        "A request for accessories, a question unrelated to the store and an attempt to see an order with the wrong phone.",
         None,
         [
             "Vocês vendem cordas e palhetas?",
@@ -97,17 +97,18 @@ def record(name: str) -> Path:
     out = [
         f"# {title}\n",
         f"{shows}\n",
-        f"- Provedor/modelo: `{provider}` / `{model}`",
-        f"- Gravado em: {datetime.now():%Y-%m-%d %H:%M}"
-        + (f" (data simulada pelo agente: `AGENT_TODAY={today}`)" if today else ""),
-        "- Os blocos \"🔧\" mostram as ferramentas que o agente chamou (argumentos e resultado).\n",
+        f"- Provider/model: `{provider}` / `{model}`",
+        f"- Recorded on: {datetime.now():%Y-%m-%d %H:%M}"
+        + (f" (date simulated by the agent: `AGENT_TODAY={today}`)" if today else ""),
+        "- The conversation is in Portuguese on purpose: the agent answers Brazilian customers in pt-BR.",
+        "- The \"🔧\" blocks show the tools the agent called (arguments and result).\n",
         "---\n",
         f"**Maestro:** {GREETING}\n",
     ]
     for message in messages:
         before = len(session.history)
         reply = agent.respond(session, message)
-        out.append(f"**Cliente:** {message}\n")
+        out.append(f"**Customer:** {message}\n")
         out += [t + "\n" for t in trace(session.history[before:])]
         out.append(f"**Maestro:** {reply}\n")
     path = OUT_DIR / f"{name}.md"

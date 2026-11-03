@@ -1,386 +1,408 @@
-# Maestro — agente de atendimento da Empório da Música
+# Maestro — customer-service agent for Empório da Música
 
-Protótipo (Python) de um agente de atendimento por mensagens de texto para a **Empório da Música**,
-loja fictícia de instrumentos musicais de Campo Grande/MS, feito para o Desafio Técnico AI Engineer da Artefact.
+A Python prototype of a text-message customer-service agent for **Empório da Música**, a fictional musical-instrument
+store in Campo Grande, MS (Brazil), built for the Artefact AI Engineer technical challenge.
 
-O **Maestro** conversa em português do Brasil, em tom informal mas profissional (como pede o manual da loja),
-consulta preços, estoque, promoções e pedidos nos dados da loja, aplica as políticas do manual
-(horários, pagamento, frete, trocas, garantia), registra reclamações e encaminhamentos para a equipe, e recusa com
-educação o que foge do escopo. O que precisa estar certo (preços, prazos, parcelas, verificação de pedido, horário)
-é código testado, não texto livre do modelo.
+**Maestro** talks to customers in Brazilian Portuguese, in an informal but professional tone (as the store's manual
+asks). It looks up prices, stock, promotions and orders in the store's data, applies the manual's policies (opening
+hours, payment, shipping, exchanges, warranty), registers complaints and hand-off requests for the staff, and politely
+declines anything out of scope. Whatever has to be right (prices, deadlines, installments, order verification, opening
+hours) is tested code, not free text from the model.
 
-- Conversas de exemplo (com as ferramentas chamadas em cada turno): [`examples/`](examples/)
-- Especificação que guiou o trabalho: [`SPEC.md`](SPEC.md) e [issue #1](https://github.com/barbieriht/emporio-da-musica-agent/issues/1)
-- Como o projeto foi conduzido com o Claude Code e as skills `mattpocock-skills`: [seção abaixo](#skills-do-claude-code-usadas-mattpocock-skills)
+- Example conversations (with the tools called in each turn): [`examples/`](examples/)
+- Specification that guided the work: [`SPEC.md`](SPEC.md) and [issue #1](https://github.com/barbieriht/emporio-da-musica-agent/issues/1)
+- How the project was built with Claude Code and the `mattpocock-skills` skills: [section below](#claude-code-skills-used-mattpocock-skills)
+- All the documentation in a single PDF: [`docs/maestro-documentation.pdf`](docs/maestro-documentation.pdf)
 
-## Como rodar
+## Language
 
-Requisitos: Python 3.12+ e [uv](https://docs.astral.sh/uv/).
+Everything in the repository is written in **English** (README, specification, code, comments, test names, issues and
+commit messages), with one deliberate exception: **what the agent says to customers, and the text that instructs the model, is Brazilian
+Portuguese**. That covers the system prompt, the tool descriptions and tool outputs, the fixed messages (greeting,
+fallbacks, after-hours notice), the store's policy manual in `data/policies/` (the store's own source document) and the
+recorded example conversations. The customers are Brazilian and the data and manual are in Portuguese, so changing the
+agent's language would change the product, not just the documentation. The example files have English headers and
+Portuguese transcripts. For the same reason, the string literals inside the tests (what the agent is expected to say)
+are Portuguese.
+
+## How to run
+
+Requirements: Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/barbieriht/emporio-da-musica-agent.git
 cd emporio-da-musica-agent
 uv sync
-cp .env.example .env        # preencha UMA chave de provedor (veja abaixo)
+cp .env.example .env        # fill in ONE provider key (see below)
 uv run python -m emporio_agent
 ```
 
-Digite `sair` para encerrar. Para rodar os testes (não usam rede nem LLM real):
+Type `sair` (Portuguese for "quit") to leave. To run the tests (they use neither the network nor a real LLM):
 
 ```bash
 uv run pytest
 ```
 
-### Provedor do modelo
+### Model provider
 
-O agente usa o `init_chat_model` do LangChain, então o provedor é escolhido por variáveis de ambiente (`.env`):
+The agent uses LangChain's `init_chat_model`, so the provider is chosen with environment variables (`.env`):
 
-| Provedor | Variáveis | Observação |
+| Provider | Variables | Notes |
 |---|---|---|
-| **Google Gemini** (padrão) | `GOOGLE_API_KEY` | Camada gratuita em <https://aistudio.google.com/apikey>. Modelo padrão fixado em `gemini-3.7-flash`. |
-| **Groq** (alternativa) | `GROQ_API_KEY`, `LLM_PROVIDER=groq`, `LLM_MODEL=openai/gpt-oss-120b` | Camada gratuita com limites: <https://console.groq.com/keys>. |
+| **Google Gemini** (default) | `GOOGLE_API_KEY` | Free tier at <https://aistudio.google.com/apikey>. Default model pinned to `gemini-3.7-flash`. |
+| **Groq** (alternative) | `GROQ_API_KEY`, `LLM_PROVIDER=groq`, `LLM_MODEL=openai/gpt-oss-120b` | Free tier with limits: <https://console.groq.com/keys>. |
 
-`LLM_PROVIDER` e `LLM_MODEL` sobrescrevem o padrão. **Nomes de modelo mudam e são aposentados** (o `gemini-2.5-flash`
-já estava indisponível para contas novas durante o desenvolvimento, e um modelo Llama da Groq sugerido de memória
-pelo assistente nem existia na chave): se der `404 model not found`, liste os modelos da sua chave e ajuste `LLM_MODEL`.
-Se o provedor responder `503 high demand`, é sobrecarga temporária do modelo: tente de novo ou troque de modelo/provedor.
+`LLM_PROVIDER` and `LLM_MODEL` override the default. **Model names change and get retired**: `gemini-2.5-flash` was
+already unavailable for new accounts during development, and a Groq Llama model that the assistant suggested from memory
+did not exist for the key. If you get `404 model not found`, list the models your key can use and set `LLM_MODEL`.
+If the provider answers `503 high demand`, the model is temporarily overloaded: retry, or switch model/provider.
 
-### Variáveis opcionais
+### Optional variables
 
-| Variável | Efeito |
+| Variable | Effect |
 |---|---|
-| `AGENT_TODAY=2026-02-20` | Os pedidos de exemplo são de 2025–2026; com a data real toda devolução já estaria fora do prazo. Esta variável simula a data **somente para a regra de devolução** (a consulta "loja aberta agora" e o aviso de fora do expediente usam sempre o relógio real). |
-| `COMPLAINTS_FILE` | Onde reclamações e encaminhamentos são gravados (padrão: `complaints.jsonl` na raiz, ignorado pelo git). |
+| `AGENT_TODAY=2026-02-20` | The sample orders are from 2025–2026, so with the real date every return would already be expired. This variable simulates the date **for the return rule only** (the "store open now" check and the after-hours notice always use the real clock). |
+| `COMPLAINTS_FILE` | Where complaints and hand-off requests are written (default: `complaints.jsonl` in the project root, ignored by git). |
 
-### Regerar os exemplos
+### Regenerating the examples
 
 ```bash
-uv run python scripts/record_examples.py            # todos
-uv run python scripts/record_examples.py 04-devolucao-pedido-real
+uv run python scripts/record_examples.py            # all of them
+uv run python scripts/record_examples.py 04-real-order-return
 ```
 
-O script reproduz mensagens de cliente roteirizadas no agente real e salva as transcrições com as chamadas de
-ferramenta. A saída varia um pouco a cada execução (é um LLM).
+The script replays scripted customer messages through the real agent and saves the transcripts with the tool calls. The
+output varies a little on every run (it is an LLM).
 
-## Como o agente funciona
+### Regenerating the documentation PDF
+
+```bash
+uv run python scripts/build_docs_pdf.py
+```
+
+It renders this README, `SPEC.md`, `docs/agents/*.md` and the five example conversations into
+`docs/maestro-documentation.pdf`. It needs the `markdown` package (dev dependency, installed by `uv sync`) and the
+`wkhtmltopdf` program on the system.
+
+## How the agent works
 
 ```
-mensagem do cliente
+customer message
       │
       ▼
- Agent.respond(session, mensagem)
-      │  ├─ loop de ferramentas (máx. 5 chamadas ao modelo por mensagem)
-      │  ├─ verificador: valores em R$ e datas da resposta final precisam vir das ferramentas
-      │  └─ aviso de fora do expediente (só na 1ª resposta da sessão em que a loja está fechada)
+ Agent.respond(session, message)
+      │  ├─ tool loop (at most 5 model calls per message)
+      │  ├─ checker: R$ values and dates in the final reply must come from the tools
+      │  └─ after-hours notice (only on the first reply of a session in which the store is closed)
       ▼
- LLM (system prompt do Maestro + histórico da sessão + definição das ferramentas)
-      │ decide qual ferramenta chamar
+ LLM (Maestro system prompt + session history + tool definitions)
+      │ decides which tool to call
       ▼
  ┌─────────┬──────────┬────────┬─────────┬────────────┐
  │ Catalog │ Policies │ Orders │ Returns │ Complaints │
  └─────────┴──────────┴────────┴─────────┴────────────┘
-   CSVs      manual em   CSVs +   regra     arquivo
-             seções .md  verific. pura      local
+   CSVs      manual as   CSVs +   pure       local
+             .md files   verific. rules      file
 ```
 
-**As 11 ferramentas expostas ao modelo:**
+**The 11 tools exposed to the model:**
 
-| Ferramenta | O que faz |
+| Tool | What it does |
 |---|---|
-| `search_products`, `get_product_details` | Busca no catálogo; detalhes (descrição, especificações, alternativas se indisponível) |
-| `get_payment_options` | Por id de produto: PIX (5% só sem promoção), débito, boleto, parcelas, combinação de formas |
-| `get_policy` | Seção do manual (loja, horários, pagamento, trocas, frete, promoções, atendimento, garantia, privacidade) |
-| `get_installments`, `get_shipping_quote`, `is_store_open_now` | Parcelas de um valor, frete por cidade, loja aberta agora |
-| `get_order_status`, `check_return_eligibility` | Pedido e devolução/troca, com verificação por telefone |
-| `register_complaint`, `request_human_handoff` | Grava reclamação ou pedido de encaminhamento, com protocolo |
+| `search_products`, `get_product_details` | Catalog search; details (description, specs, alternatives when unavailable) |
+| `get_payment_options` | By product id: PIX (5% only without a promotion), debit, boleto, installments, combining payment methods |
+| `get_policy` | A section of the manual (store, hours, payment, exchanges, shipping, promotions, service guidelines, warranty, privacy) |
+| `get_installments`, `get_shipping_quote`, `is_store_open_now` | Installments for an amount, shipping by city, whether the store is open now |
+| `get_order_status`, `check_return_eligibility` | Order status and return/exchange eligibility, with phone verification |
+| `register_complaint`, `request_human_handoff` | Writes a complaint or a hand-off request, with a protocol number |
 
-| Módulo | Responsabilidade |
+| Module | Responsibility |
 |---|---|
-| `agent.py` | `Agent.respond(session, mensagem)`: loop de ferramentas, histórico, limite de chamadas, rollback se o modelo falhar, aviso de fora do expediente, verificação das respostas, acesso das ferramentas à sessão |
-| `grounding.py` | Extrai valores em R$ e datas de um texto e confere contra o que as ferramentas/cliente disseram |
-| `prompt.py` | Persona (Maestro), regras de conduta e saudação inicial |
-| `catalog.py` | Carrega produtos/categorias/promoções; busca, preço efetivo, disponibilidade, alternativas |
-| `policies.py` | Seções do manual; parcelas, opções de pagamento, frete, "loja aberta agora" e aviso de fora do expediente (fuso America/Campo_Grande) |
-| `orders.py` | Consulta de pedido: validação de formato, verificação por telefone e memória da verificação na sessão |
-| `returns.py` | Elegibilidade de devolução/troca por motivo, prazo e status do pedido |
-| `complaints.py` | Registro local (JSON Lines) de reclamações e encaminhamentos, com protocolo |
-| `money.py` | Arredondamento comercial (meio para cima) com `Decimal` |
-| `tools.py` | Camada fina que expõe os módulos como *tools* do LangChain, formatando respostas em português |
-| `config.py`, `cli.py` | Seleção do provedor por env, relógio (`AGENT_TODAY`), montagem do agente, CLI de chat |
+| `agent.py` | `Agent.respond(session, message)`: tool loop, history, call limit, rollback if the model fails, after-hours notice, reply checking, tool access to the session |
+| `grounding.py` | Extracts R$ values and dates from a text and checks them against what the tools/customer said |
+| `prompt.py` | Persona (Maestro), conduct rules and the opening greeting |
+| `catalog.py` | Loads products/categories/promotions; search, effective price, availability, alternatives |
+| `policies.py` | Manual sections; installments, payment options, shipping, "store open now" and the after-hours notice (America/Campo_Grande time zone) |
+| `orders.py` | Order lookup: format validation, phone verification and session memory of the verification |
+| `returns.py` | Return/exchange eligibility by reason, deadline and order status |
+| `complaints.py` | Local JSON Lines log of complaints and hand-offs, with a protocol number |
+| `money.py` | Commercial rounding (half up) with `Decimal` |
+| `tools.py` | Thin layer exposing the modules as LangChain *tools*, formatting answers in Portuguese |
+| `config.py`, `cli.py` | Provider selection from env, clock (`AGENT_TODAY`), agent assembly, chat CLI |
 
-## Decisões técnicas e justificativas
+## Technical decisions and rationale
 
-**Abordagem: *function calling* com ferramentas determinísticas (sem RAG vetorial, sem agente de SQL).**
-Os dados são pequenos (65 produtos, 19 pedidos, 49 clientes) e o manual tem ~8 páginas. Regras que precisam estar
-certas (preço com promoção, janela de 7 dias, parcelas, frete, horário) são código testável, não texto para o modelo
-interpretar. O LLM fica com o que ele faz bem: entender a pergunta, escolher a ferramenta e redigir a resposta no tom
-da loja. Um agente de SQL geraria consultas livres sobre dados com regras de negócio escondidas (promoção ativa,
-status que vale mais que estoque); ferramentas tipadas evitam isso e dão uma superfície pequena para testar.
+**Approach: function calling with deterministic tools (no vector RAG, no SQL agent).** The data is small (65 products,
+19 orders, 49 customers) and the manual is ~8 pages. Rules that must be right (promotional price, 7-day window,
+installments, shipping, opening hours) are testable code, not text for the model to interpret. The LLM keeps what it does
+well: understanding the question, choosing the tool and writing the answer in the store's tone. A SQL agent would write
+free-form queries over data with hidden business rules (active promotion, status beating stock); typed tools avoid that
+and give a small surface to test.
 
-**O que é código e o que é LLM (revisado depois de uma primeira versão).** Numa segunda rodada mapeei o que o modelo
-ainda fazia "de cabeça" e movi para código o que podia ser determinístico: o **aviso de fora do expediente** (o manual
-exige e antes só aparecia se o cliente perguntasse), o **desconto de PIX** (antes o modelo calculava), o **registro de
-reclamações** (o prompt mandava "registrar", mas não havia ferramenta: o agente afirmava uma ação que não fazia), a
-**validação de telefone e nº do pedido** e a **conferência de valores e datas da resposta final**. Ficaram com o LLM, de
-propósito: entender linguagem livre, classificar o motivo da devolução e redigir. Descartei detectar "acessório" por
-palavra-chave (colide com "Cordas Orquestrais", que é categoria vendida) e classificar intenção por regex.
+**What is code and what is LLM (revised after a first version).** In a second round I mapped what the model was still
+doing "in its head" and moved to code whatever could be deterministic: the **after-hours notice** (the manual requires
+it and before it only appeared if the customer asked), the **PIX discount** (the model used to compute it), the
+**registration of complaints** (the prompt said "register", but there was no tool: the agent claimed an action it did
+not perform), the **validation of phone and order number**, and the **checking of values and dates in the final reply**.
+Deliberately left to the LLM: understanding free language, classifying the return reason and writing the reply. I ruled
+out detecting "accessory" requests by keyword (it collides with "Cordas Orquestrais", a category the store does sell) and
+classifying intent with regexes.
 
-**Framework: LangChain (modelos de chat e *tools*), com loop de agente próprio.** Escolhi LangChain/LangGraph, mas na
-implementação só o LangChain se mostrou necessário: o loop (chamar modelo → executar ferramentas → devolver resultado,
-mais o limite de chamadas e o verificador) cabe numa função curta, e escrevê-lo à mão deixou o ponto de teste simples
-(basta injetar um modelo falso). LangChain continua útil pela troca de provedor por variável de ambiente e pela
-definição das ferramentas. (Declarei `langgraph` no início e removi depois, por não ser usado.)
+**Framework: LangChain (chat models and tools), with my own agent loop.** I chose LangChain/LangGraph, but in the
+implementation only LangChain turned out to be needed: the loop (call model → run tools → return result, plus the call
+limit and the checker) fits in one short function, and writing it by hand kept the test seam simple (just inject a fake
+model). LangChain remains useful for switching providers by environment variable and for defining the tools. (I declared
+`langgraph` at the start and removed it later because it was unused.)
 
-**Modelo e provedor: Gemini (padrão) e Groq (alternativa), ambos gratuitos.** Quem avalia precisa conseguir rodar sem
-pagar; ambos têm camada gratuita e suportam *tool calling*. O modelo é fixado por versão (reprodutibilidade) e pode
-ser trocado por env. Modelos locais (Ollama) foram descartados como padrão: o agente depende de chamar ferramentas
-corretamente, onde modelos pequenos falham mais, e exigem hardware do avaliador.
+**Model and provider: Gemini (default) and Groq (alternative), both free.** Whoever evaluates this must be able to run it
+without paying; both have a free tier and support tool calling. The model is pinned by version (reproducibility) and can
+be switched by env. Local models (Ollama) were ruled out as the default: the agent depends on calling tools correctly,
+where small models fail more, and they require the evaluator's hardware.
 
-**Estratégia de prompt.** O *system prompt* define persona e regras do manual: nunca informar preço, estoque ou prazo
-sem consultar uma ferramenta; usar a ferramenta de pagamento em vez de calcular PIX/parcelas; mostrar preço original
-junto do promocional; redirecionar acessórios (a loja só vende instrumentos); recusar assuntos fora da loja; não fazer
-reservas nem pedidos (o agente só informa; para comprar, reservar ou cancelar usa o encaminhamento); pedir telefone e
-nº do pedido só na primeira consulta; só dizer que registrou uma reclamação se a ferramenta confirmar; não inventar
-etapas de processo nem características de produtos. A saudação inicial é um texto fixo (não gasta chamada de modelo e
-funciona mesmo com o provedor instável), e o prompt avisa o modelo de que ele já se apresentou.
+**Prompt strategy.** The system prompt defines the persona and the manual's rules: never state a price, stock or deadline
+without consulting a tool; use the payment tool instead of computing PIX/installments; show the original price next to
+the promotional one; redirect accessory requests (the store only sells instruments); decline subjects unrelated to the
+store; do not make reservations or orders (the agent only informs; to buy, reserve or cancel it uses the hand-off); ask
+for phone and order number only on the first lookup; only say a complaint was registered if the tool confirms it; do not
+invent process steps or product features. The opening greeting is a fixed text (it costs no model call and works even
+when the provider is unstable), and the prompt tells the model it has already introduced itself.
 
-**Recuperação das políticas: seções em Markdown, consulta por tópico.** Converti o PDF uma vez em nove arquivos em
-`data/policies/` (loja, horários, pagamento, trocas, frete, promoções, atendimento, garantia, privacidade). Assim o
-projeto roda sem dependência de leitura de PDF, as seções são revisáveis e o agente recebe só o trecho relevante.
-Com um manual maior eu passaria a embeddings; para 8 páginas, o custo e a incerteza não se justificam. (Risco: a
-conversão é manual e pode divergir do PDF original, que continua no repositório.)
+**Policy retrieval: Markdown sections, lookup by topic.** I converted the PDF once into nine files in `data/policies/`
+(store, hours, payment, exchanges, shipping, promotions, service guidelines, warranty, privacy). That way the project
+runs without a PDF-reading dependency, the sections are reviewable, and the agent receives only the relevant excerpt.
+With a larger manual I would move to embeddings; for 8 pages, the cost and the uncertainty are not justified. (Risk: the
+conversion is manual and may drift from the original PDF, which stays in the repository.)
 
-**Tratamento dos dados.** Os CSVs são carregados em memória na inicialização e nunca alterados. Normalizações: preços
-numéricos, `specs` (JSON) em dicionário, busca sem acento/caixa e com plural simples ("violão" encontra "Violões"),
-preço efetivo com a promoção ativa, disponibilidade derivada de status + estoque. **Dinheiro usa `Decimal` com
-arredondamento comercial (meio para cima)**: ao conferir números achei que `799,90 × 0,95 = 759,905` saía `759,90`
-por imprecisão de ponto flutuante, quando o correto comercial é `759,91`.
+**Data handling.** The CSVs are loaded into memory at start-up and never modified. Normalizations: numeric prices, `specs`
+(JSON) as a dictionary, accent- and case-insensitive search with simple plurals ("violão" finds "Violões"), effective
+price with the active promotion, availability derived from status + stock. **Money uses `Decimal` with commercial
+rounding (half up)**: while checking numbers I found that `799.90 × 0.95 = 759.905` came out as `759.90` because of
+floating-point imprecision, when the correct commercial result is `759.91`.
 
-**Verificador de valores e datas da resposta final.** O LLM redige o texto e pode alterar ou inventar um valor. Depois
-de cada resposta final, o código extrai os valores em R$ e as datas; cada um precisa aparecer nos resultados das
-ferramentas da sessão ou nas mensagens do próprio cliente (formatos como `R$ 1.000,00`, `1000` e `1 000` são
-equivalentes; datas valem pelo dia/mês, e pelo ano quando os dois lados o trazem). Valores derivados (somas,
-diferenças) são **rejeitados** de propósito: as contas ficam nas ferramentas. Se algo não bate, o agente pede uma
-reescrita uma vez, citando o valor problemático (nessa rodada ele pode chamar uma ferramenta); se falhar de novo, envia
-uma mensagem segura sem valores, com o telefone e o WhatsApp da loja. A resposta rejeitada e o aviso de correção não
-ficam no histórico.
+**Checker for values and dates in the final reply.** The LLM writes the text and may alter or invent a value. After every
+final reply, the code extracts the R$ values and the dates; each one must appear in the session's tool results or in the
+customer's own messages (formats such as `R$ 1.000,00`, `1000` and `1 000` are equivalent; dates match by day/month, and
+by year when both sides carry it). Derived values (sums, differences) are **rejected** on purpose: calculations live in
+the tools. If something does not match, the agent asks for one rewrite, quoting the offending value (in that round it may
+call a tool); if that fails too, it sends a safe message without values, with the store's phone and WhatsApp. The rejected
+reply and the correction notice do not stay in the history.
 
-**Privacidade e segurança dos dados de cliente.** Pedido só é mostrado com **número do pedido + telefone cadastrado**
-(comparação só pelos dígitos); pedido inexistente, telefone errado e telefone de outro cliente dão a mesma resposta
-genérica, sem revelar qual dado falhou. O e-mail não é usado porque um deles aparece em dois clientes.
-Formatos são validados em código (telefone com DDD + 8/9 dígitos, nº de pedido inteiro positivo). Depois de uma
-verificação bem-sucedida, a sessão lembra o telefone: expira após 10 minutos sem uso, com teto de 30 minutos desde que o
-cliente informou o telefone, vale só para pedidos daquele cliente, e tentativas erradas nunca são lembradas (nem apagam
-uma verificação válida). A regra vive em código (`Orders.lookup`), não no prompt, então o modelo não consegue pulá-la.
-Reclamações e encaminhamentos guardam **só descrição e contato** (nunca a conversa), em `complaints.jsonl`, fora do git.
+**Privacy and security of customer data.** An order is only shown with **order number + registered phone** (compared by
+digits only); a non-existent order, a wrong phone and another customer's phone all give the same generic answer, without
+revealing which piece failed. The e-mail is not used because one of them appears on two customers. Formats are validated
+in code (phone with area code + 8/9 digits, positive integer order number). After a successful verification the session
+remembers the phone: it expires after 10 minutes without use, with a 30-minute cap since the customer typed the phone, it
+only covers that customer's orders, and wrong attempts are never remembered (nor do they erase a valid verification). The
+rule lives in code (`Orders.lookup`), not in the prompt, so the model cannot skip it. Complaints and hand-offs store
+**only the description and the contact** (never the conversation), in `complaints.jsonl`, outside git.
 
-**Histórico de conversa.** Em memória, por sessão (`Session`). Persistir entre sessões não agrega ao protótipo de CLI.
-Se o modelo falhar no meio de um turno, o histórico volta ao estado anterior (sem mensagem pendurada sem resposta).
+**Conversation history.** In memory, per session (`Session`). Persisting across sessions adds nothing to a CLI prototype.
+If the model fails in the middle of a turn, the history goes back to its previous state (no message left hanging without a
+reply).
 
-**Interface: CLI.** O foco é o agente; um chat de terminal basta para avaliar.
+**Interface: CLI.** The focus is the agent; a terminal chat is enough to evaluate it.
 
-**Estratégia de testes (163 testes, sem rede).** Testes só em fronteiras públicas acordadas, nunca em detalhes internos:
-(1) `Agent.respond` com um modelo falso roteirizado (33 testes: histórico, loop de ferramentas, limite de chamadas,
-persona, rollback, aviso de fora do expediente, contexto da sessão para as ferramentas, verificador de valores);
-(2) as interfaces `Catalog` (26), `Policies` (51), `Orders` (31), `assess_return` (12) e `Complaints` (10) sobre os CSVs
-reais ou arquivos temporários, com relógio e estado injetáveis. Os valores esperados vêm de literais conferidos nos
-CSVs/manual, não recalculados pelo mesmo código. Ficam **fora** dos testes: a CLI, as camadas finas de *tools* e o
-comportamento do LLM real (verificado manualmente e nos exemplos). Duas observações sobre a confiança nos testes:
-fiz uma checagem de mutação no verificador (com ele desligado, 5 testes falham) e a execução com o modelo real achou
-um *crash* que os testes unitários não pegaram (ver "Erros do assistente").
+**Testing strategy (163 tests, no network).** Tests only at agreed public boundaries, never on internals: (1)
+`Agent.respond` with a scripted fake model (33 tests: history, tool loop, call limit, persona, rollback, after-hours
+notice, session context for the tools, value checker); (2) the `Catalog` (26), `Policies` (51), `Orders` (31),
+`assess_return` (12) and `Complaints` (10) interfaces over the real CSVs or temporary files, with injectable clock and
+state. Expected values come from literals checked against the CSVs/manual, not recomputed by the same code. **Outside**
+the tests: the CLI, the thin *tool* layers and the behaviour of the real LLM (checked manually and in the examples). Two
+notes on how much to trust the tests: I ran a mutation check on the checker (with it disabled, 5 tests fail), and the run
+with the real model found a *crash* that the unit tests missed (see "Assistant mistakes").
 
-## Premissas assumidas
+## Assumptions
 
-O enunciado pede para assumir interpretações razoáveis e documentá-las. As principais:
+The brief asks to assume reasonable interpretations and document them. The main ones:
 
-**Catálogo**
-- Só promoções com `is_active=1` valem; se houver mais de uma ativa no mesmo produto, vale a maior (hoje não ocorre).
-- **O status vence o estoque**: o produto 136 (descontinuado) mostra estoque 13 e o 130 (em breve) mostra estoque 2;
-  ambos são tratados como indisponíveis.
-- Busca por palavras (todas precisam aparecer) em nome, categoria e especificações; sem tolerância a erro de digitação.
-  Até 10 resultados, ordenados por relevância → disponíveis antes → com desconto antes → menor preço.
-  Produtos indisponíveis aparecem com sinalização.
-- Filtros de preço usam o preço efetivo (já com promoção).
-- Alternativas para um produto indisponível: mesma categoria, disponíveis, preço ±30%, mais próximos primeiro (até 3).
-- Não ordeno por proximidade: há uma só loja e os produtos não têm localização.
+**Catalog**
+- Only promotions with `is_active=1` count; if several are active on the same product, the largest wins (does not happen today).
+- **Status beats stock**: product 136 (discontinued) shows stock 13 and 130 (coming soon) shows stock 2; both are treated
+  as unavailable.
+- Search by words (all must appear) in name, category and specifications; no typo tolerance. Up to 10 results, ordered by
+  relevance → available first → discounted first → lower price. Unavailable products appear flagged.
+- Price filters use the effective price (promotion already applied).
+- Alternatives for an unavailable product: same category, available, price ±30%, closest first (up to 3).
+- I do not sort by proximity: there is a single store and the products have no location.
 
-**Políticas e pagamento**
-- Contatos: telefone da loja (67) 3341-4444 e WhatsApp (67) 3321-4500 (o manual traz os dois em seções diferentes).
-  E-mail `contato@emporiodamusica.com.br`; a tabela do §1.2 traz uma versão com acento, que não é um domínio válido.
-- Parcelamento: com *n* parcelas, vale se `preço / n` atinge o mínimo da faixa (R$ 50 até 3x; R$ 80 de 4x a 6x;
-  R$ 100 de 7x a 12x; o mínimo de R$ 50 também vale para 2x). Ex.: 3x a partir de R$ 150, 12x a partir de R$ 1.200.
-- PIX: 5% sobre o preço de tabela, **só em produto sem promoção** (promoções não são cumulativas); a ferramenta recebe
-  o id do produto e sabe sozinha se há promoção. Combinar formas de pagamento é permitido **a partir de R$ 2.000,
-  inclusive** (o manual diz "acima de"; mesmo critério do frete).
-- Frete: só a cidade de Campo Grande conta como "região metropolitana"; pedido de exatamente R$ 500 tem frete grátis
-  (o manual diz "acima" e "abaixo"); fora dela o frete depende do CEP e o agente informa apenas os prazos.
-- Feriados: considero os nacionais de data fixa; móveis (Carnaval, Sexta-feira Santa, Corpus Christi) e locais não
-  entram, e o agente avisa para confirmar.
-- Fora do expediente: o aviso com o horário de reabertura vem **antes** da resposta e **só uma vez por sessão** (na
-  primeira resposta em que a loja está fechada); se a loja estava aberta e fechou no meio da conversa, aparece na
-  primeira resposta seguinte.
+**Policies and payment**
+- Contacts: store phone (67) 3341-4444 and WhatsApp (67) 3321-4500 (the manual gives both, in different sections).
+  E-mail `contato@emporiodamusica.com.br`; the table in §1.2 has a version with an accent, which is not a valid domain.
+- Installments: with *n* installments, it is allowed if `price / n` reaches the tier minimum (R$ 50 up to 3x; R$ 80 from
+  4x to 6x; R$ 100 from 7x to 12x; the R$ 50 minimum also applies to 2x). E.g. 3x from R$ 150, 12x from R$ 1,200.
+- PIX: 5% off the list price, **only on a product without a promotion** (promotions are not cumulative); the tool receives
+  the product id and knows by itself whether there is a promotion. Combining payment methods is allowed **from R$ 2,000,
+  inclusive** (the manual says "above"; same criterion as shipping).
+- Shipping: only the city of Campo Grande counts as the "metropolitan region"; an order of exactly R$ 500 ships free (the
+  manual says "above" and "below"); outside it, shipping depends on the ZIP code and the agent only gives the deadlines.
+- Holidays: I consider national fixed-date holidays; movable ones (Carnival, Good Friday, Corpus Christi) and local ones
+  are not included, and the agent tells the customer to confirm.
+- After hours: the notice with the reopening time comes **before** the reply and **only once per session** (on the first
+  reply in which the store is closed); if the store was open and closed in the middle of the conversation, it appears on
+  the next reply.
 
-**Pedidos e devoluções**
-- Vale o `total_brl` registrado, nunca a soma dos itens a preços de hoje (nos pedidos 3 e 20 elas diferem).
-- Os pedidos são considerados **compras online** (têm rastreio/entrega), então vale o arrependimento de 7 dias.
-- Não há data de entrega real nos dados: uso `estimated_delivery` como data de recebimento. Pedido enviado ainda não
-  começou a contar o prazo; pendente/confirmado não tem o que devolver; cancelado também não.
-- Arrependimento e troca por preferência: 7 dias; **defeito: 30 dias contados do recebimento** (o manual diz "após a
-  compra"; escolhi o recebimento por coerência com a garantia legal e para não consumir o prazo com o frete).
-  Depois disso, a garantia legal de 90 dias (do recebimento) e a do fabricante, com a loja podendo intermediar.
-- Itens personalizados ou "venda final" não são identificáveis nos dados: o agente manda confirmar com a equipe.
-- "Hoje" é a data real do sistema, sobrescrevível por `AGENT_TODAY`.
-- Verificação de pedido lembrada na sessão por 10 min de inatividade, teto de 30 min, escopo do telefone (todos os
-  pedidos daquele cliente); sem listar pedidos só por telefone.
+**Orders and returns**
+- The recorded `total_brl` is what counts, never the sum of the items at today's prices (on orders 3 and 20 they differ).
+- Orders are treated as **online purchases** (they have tracking/delivery), so the 7-day right of withdrawal applies.
+- There is no actual delivery date in the data: I use `estimated_delivery` as the receipt date. A shipped order has not
+  started its window; pending/confirmed has nothing to return; cancelled neither.
+- Withdrawal and preference exchange: 7 days; **defect: 30 days counted from receipt** (the manual says "after the
+  purchase"; I chose receipt for consistency with the legal warranty and so shipping does not eat the window). After that,
+  the 90-day legal warranty (from receipt) and the manufacturer's, with the store able to mediate.
+- Personalized or "final sale" items cannot be identified in the data: the agent sends the customer to confirm with the staff.
+- "Today" is the system's real date, overridable with `AGENT_TODAY`.
+- Order verification is remembered in the session for 10 min of inactivity, capped at 30 min, scoped to the phone (all
+  orders of that customer); no listing of orders by phone alone.
 
-**Reclamações e encaminhamentos**
-- Gravados localmente com protocolo sequencial, tipo (`complaint`/`handoff`), descrição, contato e horário; contato é
-  obrigatório (sem ele nada é salvo e o agente pede). O retorno "em até 24 horas úteis" vem do manual, mas **não há
-  mecanismo que o cumpra**: é só o registro.
-- Se a gravação falhar, a ferramenta diz isso ao agente, que não pode afirmar que registrou.
+**Complaints and hand-offs**
+- Saved locally with a sequential protocol, kind (`complaint`/`handoff`), description, contact and time; the contact is
+  mandatory (without it nothing is saved and the agent asks). The "reply within 24 business hours" comes from the manual,
+  but **no mechanism enforces it**: it is only the record.
+- If the write fails, the tool tells the agent so, and the agent must not claim it registered.
 
-## Limitações conhecidas
+## Known limitations
 
-- **O LLM ainda pode embelezar o texto ao redor dos fatos.** Valores em R$ e datas são verificados, mas o resto não.
-  No exemplo [`04`](examples/04-devolucao-pedido-real.md) o Maestro ainda diz que a equipe "vai gerar a etiqueta de
-  postagem" e que o reembolso conta "após a loja receber o produto", o que o manual não diz. (Antes do verificador e
-  das regras de prompt ele chegou a inventar lojas parceiras e a oferecer reservas.)
-- **O verificador é limitado.** Cobre só valores em R$ e datas; não percentuais, número de parcelas ou prazos em dias.
-  Rejeita também contas corretas feitas pelo modelo (decisão deliberada). **Não medi quantas respostas são reescritas**
-  nem a taxa de falsos positivos: nos cinco cenários dos exemplos nenhuma caiu na mensagem segura, mas a amostra é pequena.
-- **Sem avaliação automatizada do comportamento do LLM.** Os testes cobrem regras, o loop e o verificador, não a
-  qualidade das respostas; os exemplos são uma amostra manual de uma execução.
-- **Verificação de pedido ainda fraca para produção**: telefone + número do pedido, sem limite de tentativas (alguém
-  poderia tentar combinações) e sem defesa específica contra *prompt injection*.
-- **Reclamações em arquivo local**: sem fila, notificação à equipe, dono do caso nem prazo real; o arquivo guarda
-  telefone/e-mail em texto simples, sem criptografia nem política de retenção (está fora do git, mas é dado pessoal).
-- **Sem ações de negócio**: o agente só informa. Não reserva, cria nem cancela pedidos; registra e encaminha.
-- **Busca simples**: sem tolerância a erros de digitação, sinônimos ou perguntas por faixa de uso
-  ("um violão bom pra começar").
-- **Histórico só em memória**; reiniciar a CLI zera a conversa e a verificação.
-- **Dependência do provedor gratuito**: limites de taxa, sobrecarga (503) e modelos aposentados. A CLI mostra uma
-  mensagem amigável quando o modelo falha, mas não troca de provedor sozinha.
-- **Política copiada à mão do PDF** e **somente português**.
-- Feriados móveis/locais e frete fora de Campo Grande não são calculados; "loja aberta agora" e o aviso de fora do
-  expediente sempre usam o relógio real (não respeitam `AGENT_TODAY`).
-- Os exemplos mostram catálogo, loja/horário, sem estoque + parcelamento, devolução e fora de escopo/privacidade; a
-  memória de verificação, as reclamações, o aviso de fora do expediente e as opções de pagamento são cobertos por
-  testes e por execuções manuais, mas não têm exemplo gravado (o desafio pede de 3 a 5 conversas).
+- **The LLM can still embellish the text around the facts.** R$ values and dates are checked, the rest is not. In example
+  [`04`](examples/04-real-order-return.md) Maestro still says the staff "will generate the postage label" and that
+  the refund counts "after the store receives the product", which the manual does not say. (Before the checker and the
+  prompt rules it even invented partner stores and offered reservations.)
+- **The checker is limited.** It only covers R$ values and dates; not percentages, number of installments or deadlines in
+  days. It also rejects correct calculations done by the model (a deliberate decision). **I did not measure how many
+  replies get rewritten** nor the false-positive rate: in the five example scenarios none fell into the safe message, but
+  the sample is small.
+- **No automated evaluation of the LLM's behaviour.** The tests cover rules, the loop and the checker, not the quality of
+  the answers; the examples are a manual sample from one run.
+- **Order verification is still weak for production**: phone + order number, no attempt limit (someone could try
+  combinations) and no specific defence against prompt injection.
+- **Complaints in a local file**: no queue, no notification to the staff, no case owner and no real deadline; the file
+  holds phone/e-mail in plain text, with no encryption or retention policy (it is outside git, but it is personal data).
+- **No business actions**: the agent only informs. It does not reserve, create or cancel orders; it records and forwards.
+- **Simple search**: no typo tolerance, synonyms or use-based questions ("a good guitar for beginners").
+- **History in memory only**; restarting the CLI resets the conversation and the verification.
+- **Dependence on the free provider**: rate limits, overload (503) and retired models. The CLI shows a friendly message
+  when the model fails, but it does not switch providers by itself.
+- **Policy copied by hand from the PDF**, and **Portuguese only** for the agent's replies.
+- Movable/local holidays and shipping outside Campo Grande are not computed; "store open now" and the after-hours notice
+  always use the real clock (they ignore `AGENT_TODAY`).
+- The examples show catalog, store/hours, out of stock + installments, return, and out of scope/privacy; the verification
+  memory, complaints, the after-hours notice and the payment options are covered by tests and manual runs, but have no
+  recorded example (the brief asks for 3 to 5 conversations).
 
-**O que eu faria com mais tempo:** um conjunto de avaliação (cenários + LLM como juiz, medindo reescritas e falsos
-positivos do verificador); estender o verificador a percentuais, parcelas e prazos; limite de tentativas e registro de
-auditoria na verificação de pedidos; notificar a equipe nas reclamações e armazenar com política de retenção;
-persistência de sessão e canal real (WhatsApp); busca com tolerância a erro de digitação e, se o manual crescer,
-embeddings; fluxo de atendente humano de verdade para cancelamentos.
+**What I would do with more time:** an evaluation set (scenarios + LLM-as-judge, measuring rewrites and checker false
+positives); extend the checker to percentages, installments and deadlines; attempt limits and an audit log on order
+verification; notify the staff on complaints and store them with a retention policy; session persistence and a real
+channel (WhatsApp); search with typo tolerance and, if the manual grows, embeddings; a real human-agent flow for cancellations.
 
-## Uso de assistentes de código
+## Use of AI coding assistants
 
-Usei **apenas o Claude Code** (CLI da Anthropic, modelo Sonnet), com o plugin de *skills* `mattpocock-skills`
-(`to-spec`, `to-tickets`, `tdd`) para estruturar o trabalho. O fluxo, na prática:
+I used **only Claude Code** (Anthropic's CLI, Sonnet model), with the `mattpocock-skills` plugin of *skills*
+(`to-spec`, `to-tickets`, `tdd`) to structure the work. The workflow, in practice:
 
-1. **Especificação**: o Claude leu o PDF do desafio, os CSVs e o manual e escreveu o [`SPEC.md`](SPEC.md)
-   (problema, histórias de usuário, decisões, testes, fora de escopo), publicado como issue #1.
-2. **Tickets**: a especificação virou 7 issues no GitHub, em fatias verticais com dependências explícitas
-   (esqueleto com persona → catálogo → políticas → pedidos → devoluções → exemplos → README).
-3. **Por ticket, TDD**: antes de qualquer teste, o Claude propunha a **fronteira de teste** e eu confirmava. Depois,
-   um ciclo por vez: teste que falha → código mínimo → próximo teste. Sempre que havia uma decisão de produto, ele
-   me perguntava em vez de escolher sozinho.
-4. **Verificação real**: eu rodava a CLI com o modelo real e colava a saída; o Claude ajustava a partir disso.
-5. **Segunda rodada (endurecimento)**: perguntei ao Claude quais tarefas do LLM poderiam virar código. Ele mapeou dez,
-   com valor e esforço, e eu concordei com a ordem proposta; viraram mais seis issues (#9 a #14), seguindo o mesmo fluxo.
+1. **Specification**: Claude read the challenge PDF, the CSVs and the manual and wrote [`SPEC.md`](SPEC.md) (problem,
+   user stories, decisions, tests, out of scope), published as issue #1.
+2. **Tickets**: the specification became 7 GitHub issues, as vertical slices with explicit dependencies (skeleton with
+   persona → catalog → policies → orders → returns → examples → README).
+3. **TDD per ticket**: before any test, Claude proposed the **test boundary** and I confirmed it. Then, one cycle at a
+   time: failing test → minimal code → next test. Whenever there was a product decision, it asked me instead of choosing
+   by itself.
+4. **Real verification**: I ran the CLI with the real model and pasted the output; Claude adjusted from there.
+5. **Second round (hardening)**: I asked Claude which of the LLM's tasks could become code. It mapped ten, with value and
+   effort, and I agreed with the proposed order; they became six more issues (#9 to #14), following the same flow.
+6. **Language**: I initially wrote the README in Portuguese (my choice at the time). When I found out that the
+   deliverables must be in English, I asked Claude to translate the README and the documentation and generate a PDF; the
+   agent itself keeps speaking Portuguese (see "Language").
 
-**O que decidi eu:** provedor gratuito e modelo (Gemini 3.7 Flash fixado; depois pedi o suporte à Groq), uso de
-LangChain, respostas em pt-BR com código em inglês, `uv`, README em português, a persona "Maestro" e a apresentação
-inicial (ideia minha), a quantidade de chamadas máximas por mensagem e o texto de fallback, regras de busca
-(todas as palavras, campos pesquisados, limite de 10, ordem por relevância/desconto) e descarte da ordenação por
-localização, status vencendo estoque, alternativas ±30%, comportamento para busca sem resultado/sem critério, conteúdo
-de contatos e e-mail, premissa de pedidos online, a regra de parcelamento por faixas, tratamento de feriados,
-verificação de pedido por número + telefone e sem listagem, mensagem genérica de falha, uso de `estimated_delivery`,
-`AGENT_TODAY`, janela de defeito contada do recebimento e os cenários dos exemplos. Na segunda rodada: aviso de fora do
-expediente só na primeira resposta da sessão; reclamações em arquivo local só com descrição e contato; ferramenta de
-pagamento por id de produto; **memória da verificação na sessão com limite de tempo** (a ideia do limite foi minha;
-10 min de inatividade, teto de 30 min e escopo do telefone eu escolhi entre as opções propostas); e as regras do verificador (evidência = ferramentas + cliente, valores
-derivados rejeitados, só R$ e datas, mensagem segura sem valores).
+**What I decided:** free provider and model (Gemini 3.7 Flash pinned; later I asked for Groq support), the use of
+LangChain, replies in pt-BR with code in English, `uv`, the "Maestro" persona and the opening introduction (my idea), the
+maximum number of calls per message and the fallback text, search rules (all words, searched fields, limit of 10, order by
+relevance/discount) and dropping the sort by location, status beating stock, alternatives ±30%, behaviour for a search with
+no result/no criteria, contacts and e-mail content, the online-orders assumption, the tiered installment rule, holiday
+handling, order verification by number + phone and no listing, the generic failure message, use of `estimated_delivery`,
+`AGENT_TODAY`, the defect window counted from receipt, and the example scenarios. In the second round: the after-hours
+notice only on the first reply of the session; complaints in a local file with only description and contact; the payment
+tool by product id; **session memory of the verification with a time limit** (the idea of the limit was mine; the 10 min
+inactivity, 30 min cap and phone scope I chose among the proposed options); and the checker's rules (evidence = tools +
+customer, derived values rejected, only R$ and dates, a safe message without values). And, at the end, the scope of the
+English translation and what goes into the PDF.
 
-**O que o Claude propôs e implementou:** a arquitetura de ferramentas, os módulos e testes, a conversão do manual em
-seções, o script de gravação dos exemplos, o mapeamento de tarefas LLM→código e o texto deste README, sempre com as
-opções acima apresentadas para eu escolher.
+**What Claude proposed and implemented:** the tool architecture, the modules and tests, the conversion of the manual
+into sections, the script that records the examples, the LLM→code task mapping, the PDF build script, the translation,
+and the text of this README, always presenting options for me to choose from.
 
-**Erros do assistente que apareceram no caminho (e como foram pegos):**
-- Sugeriu de memória o modelo `gemini-2.5-flash`, já indisponível, e um modelo Groq inexistente na minha chave: peguei
-  na execução real; a lista de modelos foi consultada com a chave e o padrão foi atualizado.
-- Um commit com "Closes #2" fechou a issue ao fazer push, antes da verificação manual; foi reaberta.
-- Um teste de preço mínimo começou com o conjunto esperado errado (faltava o produto 93); a conferência nos CSVs corrigiu.
-- Um método foi parar fora da classe por um erro de edição; os testes falharam e revelaram.
-- A ordenação inicial colocava desconto antes de disponibilidade, contra o que combinamos; corrigida.
-- O Maestro inventou lojas parceiras ("Music Center", "Lojinha do Som") e ofereceu "reservar o modelo", e as ferramentas
-  não expunham descrição/especificações dos produtos: apareceram nas minhas execuções e na leitura dos exemplos
-  gravados; viraram regras de prompt e uma correção (testada) na ferramenta.
-- Declarou `langgraph` como dependência sem usá-lo; removido ao revisar o README.
-- Um teste do histórico passou de primeira (o código do ciclo anterior já cobria); foi mantido como proteção.
-- O PIX do Giannini saiu `R$ 759,90` em vez de `759,91` por *float*; o assistente percebeu ao conferir os números na saída
-  da ferramenta e corrigiu com `Decimal` (teste primeiro).
-- Ao implementar o verificador, uma edição duplicou métodos do `Agent`: o teste central continuou falhando e a leitura do
-  arquivo mostrou a duplicação. Uma segunda edição falhou por um padrão que não casava com caracteres literais do arquivo.
-- **O verificador quebrou com o modelo real**: o regex tratou o ponto final de "…até R$ 2.000." como parte do número e
-  lançou `InvalidOperation`. Os testes unitários não pegaram; a regravação dos exemplos pegou. Foi corrigido com um regex
-  mais estrito, um *parser* que nunca derruba a conversa e testes de pontuação e de números ilegíveis.
-- O README dizia que a verificação de pedido era "*stateless*" depois que ela deixou de ser; corrigido na hora e revisado aqui.
-- Vários testes novos do verificador passaram de primeira (o código do primeiro ciclo já os cobria); para não confiar
-  em teste que não falha, o assistente desligou o verificador e conferiu que 5 deles quebram.
+**Assistant mistakes along the way (and how they were caught):**
+- It suggested `gemini-2.5-flash` from memory, already unavailable, and a Groq model that did not exist for my key: I
+  caught it on the real run; the key's model list was queried and the default updated.
+- A commit with "Closes #2" closed the issue on push, before the manual verification; it was reopened.
+- A minimum-price test started with the wrong expected set (product 93 was missing); checking against the CSVs fixed it.
+- A method ended up outside the class because of an editing error; the tests failed and revealed it.
+- The initial ordering put discount before availability, against what we agreed; fixed.
+- Maestro invented partner stores ("Music Center", "Lojinha do Som") and offered to "reserve the model", and the tools did
+  not expose product descriptions/specifications: these showed up in my runs and when reading the recorded examples; they
+  became prompt rules and a (tested) fix in the tool.
+- It declared `langgraph` as a dependency without using it; removed while reviewing the README.
+- A history test passed on the first run (the previous cycle's code already covered it); it was kept as protection.
+- The PIX price of the Giannini came out `R$ 759,90` instead of `759,91` because of *float*; the assistant noticed it
+  while checking the numbers in the tool output and fixed it with `Decimal` (test first).
+- While implementing the checker, an edit duplicated methods of `Agent`: the central test kept failing and reading the
+  file showed the duplication. A second edit failed because a pattern did not match literal characters in the file.
+- **The checker crashed with the real model**: the regex treated the final dot of "…up to R$ 2.000." as part of the number
+  and raised `InvalidOperation`. The unit tests did not catch it; re-recording the examples did. It was fixed with a
+  stricter regex, a parser that never breaks the conversation, and tests for punctuation and unreadable numbers.
+- The README said order verification was "stateless" after it stopped being so; fixed on the spot and reviewed here.
+- Several new checker tests passed on the first run (the first cycle's code already covered them); so as not to trust a
+  test that never fails, the assistant disabled the checker and confirmed that 5 of them break.
 
-## Skills do Claude Code usadas (`mattpocock-skills`)
+## Claude Code skills used (`mattpocock-skills`)
 
-O projeto foi conduzido com o Claude Code e o plugin de *skills* **`mattpocock-skills`** (marketplace
-`claude-plugins-official`, versão 1.3.1). Uma *skill* é um pacote de instruções que o Claude Code carrega para um tipo
-de tarefa; estas empurram para um fluxo de engenharia disciplinado: **especificação → tickets em fatias verticais →
-TDD em fronteiras de teste combinadas antes**. Usei quatro:
+The project was run with Claude Code and the **`mattpocock-skills`** plugin of *skills* (marketplace
+`claude-plugins-official`, version 1.3.1). A skill is a package of instructions that Claude Code loads for a kind of task;
+these ones push towards a disciplined engineering flow: **specification → tickets as vertical slices → TDD at test
+boundaries agreed beforehand**. I used four:
 
-| Skill | Para que serviu aqui | Onde aparece no repositório |
+| Skill | What it was for here | Where it shows in the repository |
 |---|---|---|
-| `setup-matt-pocock-skills` | Configurar onde ficam as issues (GitHub, via `gh`), o vocabulário de rótulos de triagem e o layout de documentação de domínio | [`CLAUDE.md`](CLAUDE.md) (bloco "Agent skills") e [`docs/agents/`](docs/agents/) (`issue-tracker.md`, `triage-labels.md`, `domain.md`) |
-| `to-spec` | Transformar o PDF do desafio, os CSVs e o manual numa especificação (problema, histórias de usuário, decisões, testes, fora de escopo) e publicá-la como issue com o rótulo `ready-for-agent` | [`SPEC.md`](SPEC.md) e a issue #1 |
-| `to-tickets` | Quebrar a especificação em *tracer bullets*: fatias verticais, cada uma demonstrável sozinha, com os bloqueios entre elas explícitos | Issues #2 a #8 (primeira rodada) e #9 a #14 (endurecimento), todas com "Parent" e "Blocked by" |
-| `tdd` | Conduzir cada ticket em *red → green*, um teste por vez, só em fronteiras (*seams*) confirmadas | Os 163 testes em [`tests/`](tests/) e o histórico de commits |
+| `setup-matt-pocock-skills` | Configure where issues live (GitHub, via `gh`), the triage-label vocabulary and the domain-documentation layout | [`CLAUDE.md`](CLAUDE.md) ("Agent skills" block) and [`docs/agents/`](docs/agents/) (`issue-tracker.md`, `triage-labels.md`, `domain.md`) |
+| `to-spec` | Turn the challenge PDF, the CSVs and the manual into a specification (problem, user stories, decisions, tests, out of scope) and publish it as an issue labelled `ready-for-agent` | [`SPEC.md`](SPEC.md) and issue #1 |
+| `to-tickets` | Break the specification into *tracer bullets*: vertical slices, each demonstrable on its own, with the blocking relations made explicit | Issues #2 to #8 (first round) and #9 to #14 (hardening), all with "Parent" and "Blocked by" |
+| `tdd` | Drive each ticket in *red → green*, one test at a time, only at confirmed boundaries (*seams*) | The 163 tests in [`tests/`](tests/) and the commit history |
 
-**Como as regras das skills mudaram o trabalho, na prática:**
-- **Fronteiras de teste antes de qualquer teste.** A skill `tdd` não permite escrever teste numa fronteira não confirmada.
-  Por isso cada ticket começou com o Claude propondo a fronteira (o que ela pega e o que não pega) e eu confirmando:
-  `Agent.respond` com modelo falso; as interfaces `Catalog`, `Policies`, `Orders`, `assess_return` e `Complaints`.
-  Tudo fora disso (CLI, camada fina de *tools*, comportamento do LLM real) ficou deliberadamente sem teste automatizado.
-- **Fatias verticais, não camadas.** Os tickets cortam o caminho inteiro (dados → regra → ferramenta → prompt → CLI),
-  então cada um pôde ser verificado com o modelo real antes de seguir (e foi: eu rodava a CLI e colava a saída).
-- **Um ciclo por vez, sem testes "imaginados".** Os testes nasceram de comportamento observável, com valores esperados
-  independentes (literais conferidos nos CSVs e no manual), evitando testes que repetem a fórmula do código.
-- **Decisões de produto viram perguntas.** A skill `to-spec` manda sintetizar a especificação sem entrevistar o usuário
-  (e confirmar só as fronteiras de teste). Como pedi para participar das decisões, o Claude me perguntou também cada
-  decisão de produto (regras de busca, parcelas, janela de devolução, tempo de memória da verificação...), e as
-  respostas ficaram registradas nas issues.
-- **Rótulos e rastreabilidade.** Issues com `ready-for-agent`, comentários de status em cada uma e fechamento só depois
-  de verificar com o modelo real (um commit com "Closes #2" chegou a fechar uma issue cedo demais; foi reaberta).
+**How the skills' rules changed the work, in practice:**
+- **Test boundaries before any test.** The `tdd` skill does not allow writing a test at an unconfirmed boundary. So every
+  ticket began with Claude proposing the boundary (what it catches and what it misses) and me confirming it:
+  `Agent.respond` with a fake model; the `Catalog`, `Policies`, `Orders`, `assess_return` and `Complaints` interfaces.
+  Everything outside that (CLI, thin tool layer, real LLM behaviour) was deliberately left without automated tests.
+- **Vertical slices, not layers.** The tickets cut the whole path (data → rule → tool → prompt → CLI), so each could be
+  verified with the real model before moving on (and was: I ran the CLI and pasted the output).
+- **One cycle at a time, no "imagined" tests.** Tests were born from observable behaviour, with independent expected
+  values (literals checked in the CSVs and the manual), avoiding tests that repeat the code's formula.
+- **Product decisions become questions.** The `to-spec` skill says to synthesize the specification without interviewing
+  the user (and to confirm only the test boundaries). Since I asked to take part in the decisions, Claude also asked me
+  every product decision (search rules, installments, return window, verification-memory time...), and the answers were
+  recorded in the issues.
+- **Labels and traceability.** Issues with `ready-for-agent`, a status comment on each one, and closing only after
+  verifying with the real model (a commit with "Closes #2" once closed an issue too early; it was reopened).
 
-**Onde me afastei das skills, ou onde elas encontraram limites:**
-- Em alguns ciclos agrupei testes relacionados antes de implementar (por exemplo, os de formato e expiração da
-  verificação de pedidos), em vez de um único teste por vez; e vários testes passaram de primeira porque o código do
-  ciclo anterior já os cobria. Quando isso aconteceu, conferi que eles realmente falham (checagem de mutação no
-  verificador de respostas).
-- O `gh` instalado (2.4) é antigo: não tem sub-issues nativas, dependências entre issues nem `--comment` no `close`.
-  As dependências ficaram em texto ("Blocked by") e o fechamento foi comentário + `close`.
-- A skill de modelagem de domínio (`GLOSSARY.md` e ADRs) está configurada em `docs/agents/domain.md`, mas **não usei**:
-  as decisões foram registradas nas issues e no README. Também não usei as skills de revisão de código, `grilling`,
-  `prototype` ou `wizard`; o enunciado pedia um protótipo e o ciclo especificação → tickets → TDD bastou.
-- O arquivo [`CLAUDE.md`](CLAUDE.md) e `docs/agents/` são configuração da ferramenta de desenvolvimento, não do agente
-  Maestro: o agente em si não depende de nenhuma skill nem do Claude Code.
+**Where I departed from the skills, or where they hit limits:**
+- In some cycles I grouped related tests before implementing (for example the format and expiry ones for order
+  verification) instead of one test at a time; and several tests passed on the first run because the previous cycle's code
+  already covered them. When that happened I checked that they really fail (mutation check on the reply checker).
+- The installed `gh` (2.4) is old: it has no native sub-issues, no issue dependencies and no `--comment` on `close`.
+  Dependencies were left as text ("Blocked by") and closing was comment + `close`.
+- The domain-modelling skill (`GLOSSARY.md` and ADRs) is configured in `docs/agents/domain.md`, but **I did not use it**:
+  decisions were recorded in the issues and in the README. I also did not use the code-review, `grilling`, `prototype` or
+  `wizard` skills; the brief asked for a prototype and the specification → tickets → TDD cycle was enough.
+- [`CLAUDE.md`](CLAUDE.md) and `docs/agents/` configure the development tool, not the Maestro agent: the agent itself
+  depends neither on any skill nor on Claude Code.
 
-## Estrutura do repositório
+## Repository structure
 
 ```
-src/emporio_agent/   código do agente
-tests/               163 testes (modelo falso + CSVs reais)
-data/                CSVs e PDF da loja; data/policies/ = manual em seções .md
-examples/            5 conversas gravadas com o modelo real
-scripts/             gravação dos exemplos
-docs/agents/, CLAUDE.md   configuração das skills do Claude Code
-SPEC.md              especificação inicial
-complaints.jsonl     (gerado em execução, ignorado pelo git) reclamações e encaminhamentos
+src/emporio_agent/   agent code
+tests/               163 tests (fake model + real CSVs)
+data/                store CSVs and PDF; data/policies/ = the manual as .md sections (Portuguese)
+examples/            5 conversations recorded with the real model (English headers, Portuguese transcripts)
+scripts/             example recording and documentation-PDF build
+docs/                tool configuration (docs/agents/) and maestro-documentation.pdf
+SPEC.md              initial specification
+complaints.jsonl     (created at run time, ignored by git) complaints and hand-offs
 ```

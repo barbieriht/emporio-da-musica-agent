@@ -1,10 +1,11 @@
-# Fora do escopo e privacidade
+# Out of scope and privacy
 
-Pedido de acessórios, pergunta sem relação com a loja e tentativa de ver um pedido com telefone errado.
+A request for accessories, a question unrelated to the store and an attempt to see an order with the wrong phone.
 
-- Provedor/modelo: `groq` / `openai/gpt-oss-120b`
-- Gravado em: 2026-11-03 13:39
-- Os blocos "🔧" mostram as ferramentas que o agente chamou (argumentos e resultado).
+- Provider/model: `groq` / `openai/gpt-oss-120b`
+- Recorded on: 2026-11-03 13:39
+- The conversation is in Portuguese on purpose: the agent answers Brazilian customers in pt-BR.
+- The "🔧" blocks show the tools the agent called (arguments and result).
 
 ---
 
@@ -19,17 +20,17 @@ Posso te ajudar com:
 
 Como posso ajudar?
 
-**Cliente:** Vocês vendem cordas e palhetas?
+**Customer:** Vocês vendem cordas e palhetas?
 
 **Maestro:** Oi! Aqui na Empório da Música trabalhamos exclusivamente com instrumentos musicais. Cordas, palhetas e outros acessórios não fazem parte do nosso catálogo. 
 
 Se precisar, recomendo procurar em uma loja especializada em acessórios de música. Posso ajudar com alguma guitarra, violão, teclado ou outro instrumento? 🎸🎹🥁
 
-**Cliente:** Qual a melhor receita de bolo de chocolate?
+**Customer:** Qual a melhor receita de bolo de chocolate?
 
 **Maestro:** Desculpe, mas não consigo ajudar com receitas. Posso te auxiliar com informações sobre instrumentos musicais, disponibilidade, preços ou qualquer outra dúvida que você tenha sobre a Empório da Música. 🎶
 
-**Cliente:** Quero ver o pedido 8, meu telefone é (67) 90000-0000.
+**Customer:** Quero ver o pedido 8, meu telefone é (67) 90000-0000.
 
 <details><summary>🔧 <code>get_order_status(order_id=8, phone='(67) 90000-0000')</code></summary>
 
